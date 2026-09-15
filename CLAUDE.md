@@ -69,6 +69,11 @@ owner. Keep new docs and UI copy in Portuguese too.
   lançamentos and Resumo **summed across all of them** instead of switching one at a time, with
   creation forms disabled in that mode. Frontend-only change (no new backend workflow) — see
   "Matriz multi-select switcher" under Frontend below.
+- **Self-service matriz/filial linking added to public signup** (2026-09-15, same day) — the
+  `12-cadastro-publico` form gained an optional `token_matriz` field so a filial can link itself
+  to an existing matriz *without* an admin running `11-onboarding`. Security-load-bearing detail:
+  it's the matriz's real `access_token`, not its (public, guessable) slug — see "Public
+  self-service signup" below for why that distinction is the whole point.
 
 ## Architecture
 
@@ -258,13 +263,30 @@ working credential handed back in the same HTTP response that has no rate limiti
   blocking. Anyone can call `POST /webhook/financeiro/cadastro-publico` as many times as they want
   and create unlimited empresas (each just needs a unique `slug`). Known, accepted gap — revisit
   if it actually gets abused, not preemptively.
-- Body: `{nome, slug, email}` only. Same validation rules as `11-onboarding` for each field.
-  Structurally the workflow is a near-duplicate of `11-onboarding`'s graph (same
+- Body: `{nome, slug, email, token_matriz?}`. Same validation rules as `11-onboarding` for each
+  required field. Structurally the workflow is a near-duplicate of `11-onboarding`'s graph (same
   auth-less-but-still-validated shape, same parallel-branch categorias/conta-inicial pattern, same
   Resend HTTP node) — deliberately **not** refactored into a shared sub-workflow, because the two
   have different security postures (admin vs. public) and different response shapes; keeping them
   as separate, independently-readable workflow files was judged safer than a shared abstraction
   that could accidentally leak the wrong behavior into the wrong caller if edited carelessly later.
+- **`token_matriz` — self-service matriz/filial linking, added 2026-09-15** (same day as the
+  matriz/filial feature itself; the user asked specifically for a way to do this from the signup
+  screen). Deliberately named/shaped differently from `11-onboarding`'s `matriz_slug`: this one
+  takes the matriz's actual **`access_token`**, not its slug. A slug is public (visible in any
+  URL/link for that empresa) and proves nothing; an `access_token` is a real credential, so
+  providing it is proof of actually controlling the matriz — the only ownership check this public,
+  unauthenticated endpoint can rely on. Resolution: `Verificar Matriz Por Token` (Supabase getAll
+  `empresas` by `access_token eq` + `ativo eq true`) → `Checar Matriz Token` (valid only if found
+  **and** `matriz_id is null`, i.e. the token's own empresa isn't itself a filial — same 2-level
+  enforcement as `11-onboarding`) → `Matriz Token Valida?` → 400 `"Token de matriz invalido ou
+  essa empresa ja e uma filial"` on failure (deliberately one message for "token doesn't match any
+  empresa" and "token matches a filial" — no reason to help a caller distinguish those). Same
+  resolve-then-converge-to-one-node pattern (`Matriz Resolvida`) as `11-onboarding`'s
+  `matriz_slug` handling. Verified by testing: valid matriz token → filial created with the right
+  `matriz_id` (checked directly in the DB and via the frontend's switcher); omitted → independent
+  empresa (`matriz_id` null, unchanged default); a filial's own token used as `token_matriz` → 400
+  (can't create a 3rd level); a fabricated/nonexistent token → 400.
 - Frontend wiring: `frontend/index.html`'s `#appGate` now has two toggled panels
   (`#painelEntrar`/`#painelCadastro`, plain `hidden`-class toggling, no routing) — "Ainda não tem
   cadastro?" / "Já tem cadastro?" links swap between them. The signup form's `slug` field
@@ -274,7 +296,15 @@ working credential handed back in the same HTTP response that has no rate limiti
   manually-typed slug on every keystroke in `nome`. The submit handler calls `cadastro-publico`
   directly with a bare `fetch` (not the `api()` helper — there's no empresa token to attach yet,
   and this call must never send one), shows the response `mensagem` in place (green
-  `#sucessoCadastro` / red `#erroCadastro`), and resets the form on success.
+  `#sucessoCadastro` / red `#erroCadastro`), and resets the form on success. The `token_matriz`
+  field lives inside a `<details>` element ("É filial de uma empresa que já usa o sistema?"),
+  collapsed by default since most signups aren't filiais — no JS needed for the collapse/expand
+  itself (native `<details>` behavior), and the field's value is still included in the submitted
+  `FormData` whether the `<details>` is open or closed (confirmed by testing: setting the input's
+  value while collapsed and submitting without ever expanding it still sent `token_matriz`
+  correctly — don't assume it needs to be visibly open to work). Empty input submits as `""`,
+  which `Validar Dados` on the backend already treats as "not provided" (falsy check) — no
+  frontend-side conversion to `null`/omission needed.
 
 ### Matriz/filial
 

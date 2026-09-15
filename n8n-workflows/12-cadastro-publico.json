@@ -10,7 +10,7 @@
           "allowedOrigins": "*"
         }
       },
-      "id": "ad09a71e-f692-42ba-8538-f99eb93be5d4",
+      "id": "55f56f7d-5a01-4e22-b748-e43518df5431",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -18,13 +18,13 @@
         -1600,
         0
       ],
-      "webhookId": "20c09937-aced-4d57-ad48-a4ffc5a14211"
+      "webhookId": "11f5c70b-7049-4854-af88-825b1b8ba2c9"
     },
     {
       "parameters": {
-        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst slug = String(body.slug || '').trim().toLowerCase();\nif (!slug || !/^[a-z0-9-]+$/.test(slug)) erros.push('slug');\nconst nome = String(body.nome || '').trim();\nif (!nome) erros.push('nome');\nconst email = String(body.email || '').trim().toLowerCase();\nif (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) erros.push('email');\nfunction gerarToken() {\n  try {\n    const { randomBytes } = require('crypto');\n    return 'fin_' + randomBytes(16).toString('hex');\n  } catch (e) {\n    let s = '';\n    for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);\n    return 'fin_' + s;\n  }\n}\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, slug, nome, email, moeda: 'BRL', timezone: 'America/Sao_Paulo', access_token: gerarToken() } }];"
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst slug = String(body.slug || '').trim().toLowerCase();\nif (!slug || !/^[a-z0-9-]+$/.test(slug)) erros.push('slug');\nconst nome = String(body.nome || '').trim();\nif (!nome) erros.push('nome');\nconst email = String(body.email || '').trim().toLowerCase();\nif (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) erros.push('email');\nfunction gerarToken() {\n  try {\n    const { randomBytes } = require('crypto');\n    return 'fin_' + randomBytes(16).toString('hex');\n  } catch (e) {\n    let s = '';\n    for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);\n    return 'fin_' + s;\n  }\n}\nconst tokenMatriz = body.token_matriz ? String(body.token_matriz).trim() : null;\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, slug, nome, email, moeda: 'BRL', timezone: 'America/Sao_Paulo', access_token: gerarToken(), token_matriz: tokenMatriz } }];"
       },
-      "id": "ee05e3ef-0c6f-4ad2-93c2-4dd1c7a6a831",
+      "id": "55e54ed2-0b8d-40e2-ab77-5ca03bc40fc8",
       "name": "Validar Dados",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -57,7 +57,7 @@
         },
         "options": {}
       },
-      "id": "2be958b0-90ee-4d69-a686-db5f9655a253",
+      "id": "12b914db-9855-48f6-8de6-8f16f4d93350",
       "name": "Dados Validos?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -82,7 +82,7 @@
           "responseCode": 400
         }
       },
-      "id": "2c81e225-b4dc-4be6-8a2a-4349ef2b9916",
+      "id": "fddc693a-ccba-4909-a354-374039f17bf1",
       "name": "Responder Invalido",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -107,7 +107,7 @@
           ]
         }
       },
-      "id": "6bbb5a2a-987a-419e-b1d3-0f2429d740fa",
+      "id": "fa6e7c56-9f35-414b-beb8-39f1d09f9cba",
       "name": "Verificar Slug (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -127,7 +127,7 @@
       "parameters": {
         "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { disponivel: rows.length === 0 } }];"
       },
-      "id": "476c10cf-ea54-4c9a-9723-967bdb5af83f",
+      "id": "d056d5c7-cb73-4713-8f50-ef49a0a3f582",
       "name": "Checar Slug",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -160,7 +160,7 @@
         },
         "options": {}
       },
-      "id": "961d9a34-c79e-49e7-b771-0238ea7efdcf",
+      "id": "96f488da-37ce-4cc7-8081-0e0950ebbabd",
       "name": "Slug Disponivel?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -185,13 +185,180 @@
           "responseCode": 409
         }
       },
-      "id": "b22c1a5e-5f8e-45e1-919e-d4cba0747d97",
+      "id": "b8920f43-4e0f-459a-a689-99fff0b6775a",
       "name": "Responder Slug Em Uso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
         -400,
         250
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$('Validar Dados').first().json.token_matriz }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3cf5048f-eebb-4c5d-a362-8ab74f70ecd6",
+      "name": "Tem Token Matriz?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { matriz_id: null } }];"
+      },
+      "id": "7b4ea801-df53-4462-8fc9-f3a47608081c",
+      "name": "Matriz Nao Informada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "empresas",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "access_token",
+              "condition": "eq",
+              "keyValue": "={{ $('Validar Dados').first().json.token_matriz }}"
+            },
+            {
+              "keyName": "ativo",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "e11db203-776d-4dd1-b01c-5dc31041d76e",
+      "name": "Verificar Matriz Por Token (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { valida: false } }];\nconst matriz = rows[0];\nif (matriz.matriz_id !== null) return [{ json: { valida: false } }];\nreturn [{ json: { valida: true, matriz_id: matriz.id } }];"
+      },
+      "id": "e2e1e166-e1f3-44d3-b49c-ca49454f4888",
+      "name": "Checar Matriz Token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.valida }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6149dbe3-12dc-414e-8a66-99638bd0265b",
+      "name": "Matriz Token Valida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Token de matriz invalido ou essa empresa ja e uma filial (so 2 niveis).\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 400
+        }
+      },
+      "id": "58e68f4d-8fbb-4acb-b263-17f603b603da",
+      "name": "Responder Matriz Token Invalido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { matriz_id: $json.matriz_id } }];"
+      },
+      "id": "6fc3d754-0846-44bd-9071-927eeda2dddb",
+      "name": "Matriz Resolvida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -450,
+        -160
       ]
     },
     {
@@ -222,11 +389,15 @@
             {
               "fieldId": "moeda",
               "fieldValue": "={{ $('Validar Dados').first().json.moeda }}"
+            },
+            {
+              "fieldId": "matriz_id",
+              "fieldValue": "={{ $('Matriz Resolvida').first().json.matriz_id }}"
             }
           ]
         }
       },
-      "id": "9a72293b-3da7-4930-9c08-2426a754d8da",
+      "id": "618f59ed-7db0-4c2b-abe9-3f6e26d8b018",
       "name": "Criar Empresa (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -245,7 +416,7 @@
       "parameters": {
         "jsCode": "const cats = [\n  { nome: 'Vendas', tipo: 'receita' },\n  { nome: 'Servicos', tipo: 'receita' },\n  { nome: 'Fornecedores', tipo: 'despesa' },\n];\nconst empresaId = $('Criar Empresa (Supabase)').first().json.id;\nreturn cats.map(c => ({ json: { empresa_id: empresaId, nome: c.nome, tipo: c.tipo } }));"
       },
-      "id": "cbdafa4c-c31a-4649-9933-ebd902648640",
+      "id": "34872e68-d758-4ebd-87f1-318e636f0493",
       "name": "Preparar Categorias",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -274,7 +445,7 @@
           ]
         }
       },
-      "id": "44571b8c-b348-4e60-a61c-9639c868225d",
+      "id": "ff9bd218-e6f6-42c9-bd40-b24c751d90e5",
       "name": "Criar Categorias (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -313,7 +484,7 @@
           ]
         }
       },
-      "id": "9bdc2e88-0b2b-4d8a-9f6d-3b915c98bf12",
+      "id": "85cc96fb-b2c3-4646-a489-43f55a534563",
       "name": "Criar Conta Inicial (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -339,7 +510,7 @@
         "jsonBody": "={{ { \"from\": \"app_financeiro <financeiro@engenhariadedadosn8n.shop>\", \"to\": [$('Validar Dados').first().json.email], \"subject\": \"Bem-vindo(a) ao app_financeiro, \" + $('Validar Dados').first().json.nome + \"!\", \"html\": \"<p>Ol\\u00e1! O cadastro da <strong>\" + $('Validar Dados').first().json.nome + \"</strong> foi conclu\\u00eddo.</p>\" + \"<p><a href='https://financeiro.engenhariadedadosn8n.shop/?token=\" + $('Criar Empresa (Supabase)').first().json.access_token + \"'>Clique aqui para acessar</a> \\u2014 o acesso fica salvo no seu navegador.</p>\" + \"<p>Se o link n\\u00e3o funcionar, acesse <a href='https://financeiro.engenhariadedadosn8n.shop'>https://financeiro.engenhariadedadosn8n.shop</a> e informe este c\\u00f3digo de acesso:</p>\" + \"<p><code>\" + $('Criar Empresa (Supabase)').first().json.access_token + \"</code></p>\" } }}",
         "options": {}
       },
-      "id": "f7af8a0c-82eb-4fc9-85cc-3ef145793e10",
+      "id": "afdf947e-76b5-49b3-92eb-da1aecef1260",
       "name": "Enviar Email Boas Vindas",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -359,7 +530,7 @@
       "parameters": {
         "jsCode": "const emailEnviado = !$json.error;\nconst email = $('Validar Dados').first().json.email;\nreturn [{ json: {\n  sucesso: true,\n  email_enviado: emailEnviado,\n  mensagem: emailEnviado\n    ? 'Cadastro realizado! Enviamos o link de acesso para ' + email + '.'\n    : 'Empresa criada, mas nao conseguimos enviar o email automaticamente. Entre em contato com o suporte.'\n} }];"
       },
-      "id": "9f647706-d04d-4c8e-a714-1a86dcd8df62",
+      "id": "fc0f3a35-84b0-4d03-8d34-001fa26f670e",
       "name": "Montar Resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -384,7 +555,7 @@
           "responseCode": 201
         }
       },
-      "id": "91f0b46d-336e-48be-882c-911b93201a4c",
+      "id": "b06ef83d-79f3-41f5-84bc-f4c463225ba2",
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -461,7 +632,7 @@
       "main": [
         [
           {
-            "node": "Criar Empresa (Supabase)",
+            "node": "Tem Token Matriz?",
             "type": "main",
             "index": 0
           }
@@ -469,6 +640,86 @@
         [
           {
             "node": "Responder Slug Em Uso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Token Matriz?": {
+      "main": [
+        [
+          {
+            "node": "Verificar Matriz Por Token (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Matriz Nao Informada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matriz Nao Informada": {
+      "main": [
+        [
+          {
+            "node": "Matriz Resolvida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Matriz Por Token (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Checar Matriz Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Matriz Token": {
+      "main": [
+        [
+          {
+            "node": "Matriz Token Valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matriz Token Valida?": {
+      "main": [
+        [
+          {
+            "node": "Matriz Resolvida",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Matriz Token Invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matriz Resolvida": {
+      "main": [
+        [
+          {
+            "node": "Criar Empresa (Supabase)",
             "type": "main",
             "index": 0
           }

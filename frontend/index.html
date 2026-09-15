@@ -50,6 +50,14 @@
           <label class="block text-xs text-slate-500 mb-1">Email</label>
           <input name="email" type="email" required class="w-full border rounded-lg px-3 py-2 text-sm">
         </div>
+        <details class="text-sm">
+          <summary class="text-slate-500 cursor-pointer">É filial de uma empresa que já usa o sistema?</summary>
+          <div class="mt-2">
+            <label class="block text-xs text-slate-500 mb-1">Token de acesso da matriz</label>
+            <input name="token_matriz" type="text" placeholder="fin_..." class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
+            <p class="text-xs text-slate-400 mt-1">Peça esse código pra quem administra a empresa matriz — é o mesmo código de acesso dela.</p>
+          </div>
+        </details>
         <button type="submit" class="w-full bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Cadastrar</button>
       </form>
       <p id="erroCadastro" class="hidden mt-3 text-sm text-red-600"></p>

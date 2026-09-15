@@ -100,6 +100,11 @@ precisar rodar nada — botão "Ainda não tem cadastro?" na tela de login. Usa
 sempre com categorias/conta padrão (não dá pra customizar nesse fluxo), e a resposta **não**
 inclui o `access_token` — só uma mensagem confirmando que o email foi (ou não) enviado.
 
+Pra se cadastrar já como **filial** de uma empresa existente, o formulário tem um campo opcional
+"Token de acesso da matriz" (campo `token_matriz` na API) — precisa ser o `access_token` de
+verdade da matriz, não o slug: só quem tem esse token comprova que é dono da matriz e pode linkar
+uma filial nova a ela. Sem esse token, cadastra como empresa independente.
+
 ## Documentação
 
 - [`init-app-financeiro.md`](init-app-financeiro.md) — escopo do produto, modelo de dados
