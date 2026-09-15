@@ -7,7 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .tab-btn.active { border-color: #4f46e5; color: #4f46e5; font-weight: 600; }
+  .tab-btn.active { border-color: #1e293b; color: #1e293b; font-weight: 600; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
   select, input { color-scheme: light; }
@@ -23,7 +23,7 @@
     <form id="formGate" class="space-y-3">
       <input name="token" type="text" placeholder="fin_..." required autofocus
         class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
-      <button type="submit" class="w-full bg-indigo-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-indigo-700">Entrar</button>
+      <button type="submit" class="w-full bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Entrar</button>
     </form>
     <p id="erroGate" class="hidden mt-3 text-sm text-red-600"></p>
   </div>
@@ -75,7 +75,7 @@
           <option value="confirmado">Confirmado</option>
           <option value="previsto">Previsto</option>
         </select>
-        <button type="submit" class="col-span-1 bg-indigo-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-indigo-700">Adicionar</button>
+        <button type="submit" class="col-span-1 bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Adicionar</button>
       </form>
     </div>
 
@@ -143,11 +143,11 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <p class="text-xs text-slate-500 mb-1">Receitas no período</p>
-        <p id="totalReceitas" class="text-2xl font-bold text-emerald-600">—</p>
+        <p id="totalReceitas" class="text-2xl font-bold text-emerald-700">—</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <p class="text-xs text-slate-500 mb-1">Despesas no período</p>
-        <p id="totalDespesas" class="text-2xl font-bold text-red-500">—</p>
+        <p id="totalDespesas" class="text-2xl font-bold text-red-700">—</p>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <p class="text-xs text-slate-500 mb-1">Saldo no período</p>
@@ -186,7 +186,7 @@
             <option value="receita">Receita</option>
             <option value="despesa">Despesa</option>
           </select>
-          <button type="submit" class="bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-indigo-700">+</button>
+          <button type="submit" class="bg-slate-800 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-slate-900">+</button>
         </form>
         <ul id="listaCategorias" class="space-y-1 text-sm"></ul>
       </div>
@@ -201,7 +201,7 @@
             <option value="cartao">Cartão</option>
           </select>
           <input name="saldo_inicial" type="number" step="0.01" placeholder="Saldo inicial" class="w-28 border rounded-lg px-2 py-1.5 text-sm">
-          <button type="submit" class="bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-indigo-700">+</button>
+          <button type="submit" class="bg-slate-800 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-slate-900">+</button>
         </form>
         <ul id="listaContas" class="space-y-1 text-sm"></ul>
       </div>
@@ -499,8 +499,8 @@ async function carregarResumo() {
     document.getElementById("tabelaCategorias").innerHTML = resumo.por_categoria.map(c => `
       <tr class="border-b border-slate-100">
         <td class="py-2 pr-2">${nomeCategoria(c.categoria_id)}</td>
-        <td class="py-2 pr-2 text-right text-emerald-600">${formatarMoeda(c.receita)}</td>
-        <td class="py-2 pr-2 text-right text-red-500">${formatarMoeda(c.despesa)}</td>
+        <td class="py-2 pr-2 text-right text-emerald-700">${formatarMoeda(c.receita)}</td>
+        <td class="py-2 pr-2 text-right text-red-700">${formatarMoeda(c.despesa)}</td>
       </tr>
     `).join("") || '<tr><td colspan="3" class="text-slate-400 py-3">Nenhum lançamento no período.</td></tr>';
   } catch (e) {
