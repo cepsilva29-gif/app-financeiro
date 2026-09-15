@@ -1,0 +1,439 @@
+{
+  "name": "financeiro - criar-conta",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "financeiro/criar-conta",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "9e48927e-6a27-496d-986d-78975e91a0d2",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1000,
+        0
+      ],
+      "webhookId": "36a97692-e0f2-4646-ae01-f4422341ef38"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.headers['x-empresa-token'] }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b429325f-5175-4be4-9037-122b646569a3",
+      "name": "Token Presente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Token de acesso ausente.\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 401
+        }
+      },
+      "id": "ba78ddf3-07d4-4e11-92ab-7e57262ce672",
+      "name": "Responder Token Ausente",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "empresas",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "access_token",
+              "condition": "eq",
+              "keyValue": "={{ $json.headers['x-empresa-token'] }}"
+            },
+            {
+              "keyName": "ativo",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "c5eaa096-9800-4d3a-bba4-711c1ef3f6c9",
+      "name": "Resolver Empresa",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { encontrada: false } }];\nreturn [{ json: { encontrada: true, empresa_id: rows[0].id } }];"
+      },
+      "id": "0c4c380d-794e-42b4-9981-640c31847c4b",
+      "name": "Checar Empresa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.encontrada }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f8041387-966b-4ed6-bdc1-49561c526077",
+      "name": "Empresa Encontrada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Token de acesso invalido.\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 401
+        }
+      },
+      "id": "c070866b-af35-40d9-994e-7c89b78aeb0a",
+      "name": "Responder Token Invalido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst nome = String(body.nome || '').trim();\nconst tipo = body.tipo;\nconst saldoInicial = body.saldo_inicial === undefined ? 0 : Number(body.saldo_inicial);\nif (!nome) erros.push('nome');\nif (!['caixa','banco','cartao'].includes(tipo)) erros.push('tipo');\nif (Number.isNaN(saldoInicial)) erros.push('saldo_inicial');\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, empresa_id: $('Checar Empresa').first().json.empresa_id, nome, tipo, saldo_inicial: saldoInicial } }];"
+      },
+      "id": "e65fecfc-cf4d-42cc-b4b9-69dd7f3cbc01",
+      "name": "Validar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6ae01cb2-27be-4ca8-9441-b96ea71ebc1a",
+      "name": "Dados Validos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": $json.erro } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 400
+        }
+      },
+      "id": "86edb2fc-fcdf-4a13-83f3-2d13117966dc",
+      "name": "Responder Invalido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "contas",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "empresa_id",
+              "fieldValue": "={{ $('Validar Dados').first().json.empresa_id }}"
+            },
+            {
+              "fieldId": "nome",
+              "fieldValue": "={{ $('Validar Dados').first().json.nome }}"
+            },
+            {
+              "fieldId": "tipo",
+              "fieldValue": "={{ $('Validar Dados').first().json.tipo }}"
+            },
+            {
+              "fieldId": "saldo_inicial",
+              "fieldValue": "={{ $('Validar Dados').first().json.saldo_inicial }}"
+            }
+          ]
+        }
+      },
+      "id": "bb21edbc-3aa5-407e-ba62-ada4a94a1e5a",
+      "name": "Criar Conta (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -30
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": true, \"conta\": $json } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 201
+        }
+      },
+      "id": "37baf967-2180-4c8a-a09f-31b13977a956",
+      "name": "Responder Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        -30
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Token Presente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Presente?": {
+      "main": [
+        [
+          {
+            "node": "Resolver Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Token Ausente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver Empresa": {
+      "main": [
+        [
+          {
+            "node": "Checar Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Empresa": {
+      "main": [
+        [
+          {
+            "node": "Empresa Encontrada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Empresa Encontrada?": {
+      "main": [
+        [
+          {
+            "node": "Validar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Token Invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Dados": {
+      "main": [
+        [
+          {
+            "node": "Dados Validos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados Validos?": {
+      "main": [
+        [
+          {
+            "node": "Criar Conta (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Conta (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

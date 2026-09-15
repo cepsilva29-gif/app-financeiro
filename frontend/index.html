@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>app_financeiro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .tab-btn.active { border-color: #4f46e5; color: #4f46e5; font-weight: 600; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  select, input { color-scheme: light; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+<!-- ===================== GATE: código de acesso ===================== -->
+<div id="appGate" class="min-h-screen flex items-center justify-center px-4">
+  <div class="bg-white rounded-xl border border-slate-200 p-6 w-full max-w-sm">
+    <h1 class="text-lg font-bold text-slate-900 mb-1">app_financeiro</h1>
+    <p class="text-sm text-slate-500 mb-4">Digite o código de acesso da sua empresa.</p>
+    <form id="formGate" class="space-y-3">
+      <input name="token" type="text" placeholder="fin_..." required autofocus
+        class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
+      <button type="submit" class="w-full bg-indigo-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-indigo-700">Entrar</button>
+    </form>
+    <p id="erroGate" class="hidden mt-3 text-sm text-red-600"></p>
+  </div>
+</div>
+
+<div id="app" class="hidden max-w-5xl mx-auto px-4 py-6">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between mb-6">
+    <div>
+      <h1 id="empresaNome" class="text-2xl font-bold text-slate-900">Carregando...</h1>
+      <p class="text-sm text-slate-500">Controle de gastos e receitas — <span id="empresaSlug"></span></p>
+    </div>
+    <div class="text-right">
+      <div id="headerStatus" class="text-sm text-slate-400"></div>
+      <button id="btnTrocarToken" class="text-xs text-slate-400 underline">trocar código de acesso</button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="flex gap-6 border-b border-slate-200 mb-6">
+    <button data-tab="lancamentos" class="tab-btn active pb-3 border-b-2 border-transparent text-slate-500">Lançamentos</button>
+    <button data-tab="resumo" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500">Resumo</button>
+    <button data-tab="cadastros" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500">Categorias &amp; Contas</button>
+  </nav>
+
+  <!-- Erro global -->
+  <div id="erroGlobal" class="hidden mb-4 p-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm"></div>
+
+  <!-- ===================== TAB: LANÇAMENTOS ===================== -->
+  <section id="tab-lancamentos" class="tab-panel active space-y-6">
+
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <h2 class="font-semibold mb-3">Novo lançamento</h2>
+      <form id="formTransacao" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <select name="tipo" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
+          <option value="">Tipo</option>
+          <option value="receita">Receita</option>
+          <option value="despesa">Despesa</option>
+        </select>
+        <select name="conta_id" required class="col-span-1 border rounded-lg px-2 py-2 text-sm" id="selectConta"></select>
+        <select name="categoria_id" class="col-span-1 border rounded-lg px-2 py-2 text-sm" id="selectCategoria">
+          <option value="">Sem categoria</option>
+        </select>
+        <input name="valor" type="number" step="0.01" min="0.01" placeholder="Valor" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
+        <input name="data" type="date" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
+        <input name="descricao" type="text" placeholder="Descrição (opcional)" class="col-span-2 border rounded-lg px-2 py-2 text-sm">
+        <select name="status" class="col-span-1 border rounded-lg px-2 py-2 text-sm">
+          <option value="confirmado">Confirmado</option>
+          <option value="previsto">Previsto</option>
+        </select>
+        <button type="submit" class="col-span-1 bg-indigo-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-indigo-700">Adicionar</button>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="flex flex-wrap gap-2 items-end mb-4">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">De</label>
+          <input id="filtroInicio" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Até</label>
+          <input id="filtroFim" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Tipo</label>
+          <select id="filtroTipo" class="border rounded-lg px-2 py-1.5 text-sm">
+            <option value="">Todos</option>
+            <option value="receita">Receita</option>
+            <option value="despesa">Despesa</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Conta</label>
+          <select id="filtroConta" class="border rounded-lg px-2 py-1.5 text-sm"><option value="">Todas</option></select>
+        </div>
+        <button id="btnFiltrar" class="bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 text-sm">Filtrar</button>
+        <button id="btnLimparFiltro" class="text-slate-500 text-sm underline">limpar</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-slate-500 border-b border-slate-200">
+              <th class="py-2 pr-2">Data</th>
+              <th class="py-2 pr-2">Tipo</th>
+              <th class="py-2 pr-2">Conta</th>
+              <th class="py-2 pr-2">Categoria</th>
+              <th class="py-2 pr-2">Descrição</th>
+              <th class="py-2 pr-2 text-right">Valor</th>
+              <th class="py-2 pr-2">Status</th>
+              <th class="py-2 pr-2"></th>
+            </tr>
+          </thead>
+          <tbody id="tabelaTransacoes"></tbody>
+        </table>
+        <p id="listaVazia" class="hidden text-center text-slate-400 py-6 text-sm">Nenhum lançamento encontrado.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TAB: RESUMO ===================== -->
+  <section id="tab-resumo" class="tab-panel space-y-6">
+    <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">De</label>
+        <input id="resumoInicio" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">Até</label>
+        <input id="resumoFim" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
+      </div>
+      <button id="btnAtualizarResumo" class="bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 text-sm">Atualizar</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 mb-1">Receitas no período</p>
+        <p id="totalReceitas" class="text-2xl font-bold text-emerald-600">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 mb-1">Despesas no período</p>
+        <p id="totalDespesas" class="text-2xl font-bold text-red-500">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 mb-1">Saldo no período</p>
+        <p id="totalSaldo" class="text-2xl font-bold text-slate-900">—</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <h2 class="font-semibold mb-3">Saldo por conta</h2>
+      <div id="saldoPorConta" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <h2 class="font-semibold mb-3">Totais por categoria</h2>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-slate-500 border-b border-slate-200">
+            <th class="py-2 pr-2">Categoria</th>
+            <th class="py-2 pr-2 text-right">Receitas</th>
+            <th class="py-2 pr-2 text-right">Despesas</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaCategorias"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== TAB: CADASTROS ===================== -->
+  <section id="tab-cadastros" class="tab-panel">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h2 class="font-semibold mb-3">Categorias</h2>
+        <form id="formCategoria" class="flex gap-2 mb-4">
+          <input name="nome" placeholder="Nome" required class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
+          <select name="tipo" required class="border rounded-lg px-2 py-1.5 text-sm">
+            <option value="receita">Receita</option>
+            <option value="despesa">Despesa</option>
+          </select>
+          <button type="submit" class="bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-indigo-700">+</button>
+        </form>
+        <ul id="listaCategorias" class="space-y-1 text-sm"></ul>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h2 class="font-semibold mb-3">Contas</h2>
+        <form id="formConta" class="flex gap-2 mb-4">
+          <input name="nome" placeholder="Nome" required class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
+          <select name="tipo" required class="border rounded-lg px-2 py-1.5 text-sm">
+            <option value="caixa">Caixa</option>
+            <option value="banco">Banco</option>
+            <option value="cartao">Cartão</option>
+          </select>
+          <input name="saldo_inicial" type="number" step="0.01" placeholder="Saldo inicial" class="w-28 border rounded-lg px-2 py-1.5 text-sm">
+          <button type="submit" class="bg-indigo-600 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-indigo-700">+</button>
+        </form>
+        <ul id="listaContas" class="space-y-1 text-sm"></ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+const CONFIG = {
+  API_BASE: "https://n8n.engenhariadedadosn8n.shop/webhook/financeiro",
+};
+
+// ---------------------------------------------------------------------------
+// Token de acesso — identifica a empresa. Não há mais slug/subdomínio na
+// requisição: o backend resolve a empresa exclusivamente pelo token (ver
+// CLAUDE.md, Fase 4), então esse token é a única coisa que precisa ser
+// guardada/enviada pelo frontend.
+// ---------------------------------------------------------------------------
+const TOKEN_KEY = "financeiro_access_token";
+
+function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+function setToken(token) {
+  try { localStorage.setItem(TOKEN_KEY, token); } catch { /* localStorage indisponível — segue só em memória nesta sessão */ }
+}
+function clearToken() {
+  try { localStorage.removeItem(TOKEN_KEY); } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Cliente da API (n8n)
+// ---------------------------------------------------------------------------
+async function api(path, { method = "GET", query = {}, body = null } = {}) {
+  let url = `${CONFIG.API_BASE}/${path}`;
+  const options = { method, headers: { "X-Empresa-Token": getToken() || "" } };
+
+  if (method === "GET") {
+    const qs = new URLSearchParams(query);
+    if ([...qs].length) url += `?${qs.toString()}`;
+  } else {
+    options.headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(body || {});
+  }
+
+  const res = await fetch(url, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.sucesso === false) {
+    throw new Error(data.mensagem || `Erro ${res.status}`);
+  }
+  return data;
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById("erroGlobal");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  setTimeout(() => el.classList.add("hidden"), 6000);
+}
+
+// ---------------------------------------------------------------------------
+// Estado
+// ---------------------------------------------------------------------------
+const state = {
+  empresa: null,
+  categorias: [],
+  contas: [],
+  transacoes: [],
+};
+
+function formatarMoeda(valor) {
+  const moeda = state.empresa?.moeda || "BRL";
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: moeda }).format(Number(valor) || 0);
+}
+
+function nomeCategoria(id) {
+  if (!id) return "—";
+  return state.categorias.find(c => c.id === id)?.nome || "—";
+}
+
+function nomeConta(id) {
+  return state.contas.find(c => c.id === id)?.nome || "—";
+}
+
+// ---------------------------------------------------------------------------
+// Tabs
+// ---------------------------------------------------------------------------
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+    if (btn.dataset.tab === "resumo") carregarResumo();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Carregamento inicial
+// ---------------------------------------------------------------------------
+async function carregarEmpresa() {
+  const { empresa } = await api("empresa-info");
+  state.empresa = empresa;
+  document.getElementById("empresaNome").textContent = empresa.nome;
+  document.getElementById("empresaSlug").textContent = empresa.slug;
+  document.getElementById("headerStatus").textContent = "";
+}
+
+async function carregarCategorias() {
+  const { categorias } = await api("listar-categorias");
+  state.categorias = categorias;
+
+  const selectCategoria = document.getElementById("selectCategoria");
+  selectCategoria.innerHTML = '<option value="">Sem categoria</option>' +
+    categorias.map(c => `<option value="${c.id}" data-tipo="${c.tipo}">${c.nome} (${c.tipo})</option>`).join("");
+
+  const lista = document.getElementById("listaCategorias");
+  lista.innerHTML = categorias.map(c =>
+    `<li class="flex justify-between border-b border-slate-100 py-1">
+      <span>${c.nome}</span>
+      <span class="text-xs px-2 py-0.5 rounded-full ${c.tipo === "receita" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}">${c.tipo}</span>
+    </li>`
+  ).join("") || '<li class="text-slate-400">Nenhuma categoria ainda.</li>';
+}
+
+async function carregarContas() {
+  const { contas } = await api("listar-contas");
+  state.contas = contas;
+
+  const selectConta = document.getElementById("selectConta");
+  selectConta.innerHTML = '<option value="">Conta</option>' +
+    contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join("");
+
+  const filtroConta = document.getElementById("filtroConta");
+  filtroConta.innerHTML = '<option value="">Todas</option>' +
+    contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join("");
+
+  const lista = document.getElementById("listaContas");
+  lista.innerHTML = contas.map(c =>
+    `<li class="flex justify-between border-b border-slate-100 py-1">
+      <span>${c.nome} <span class="text-xs text-slate-400">(${c.tipo})</span></span>
+      <span>${formatarMoeda(c.saldo_inicial)}</span>
+    </li>`
+  ).join("") || '<li class="text-slate-400">Nenhuma conta ainda.</li>';
+}
+
+async function carregarTransacoes(filtros = {}) {
+  const { transacoes } = await api("listar-transacoes", { query: filtros });
+  state.transacoes = transacoes;
+
+  const tbody = document.getElementById("tabelaTransacoes");
+  const vazio = document.getElementById("listaVazia");
+
+  if (transacoes.length === 0) {
+    tbody.innerHTML = "";
+    vazio.classList.remove("hidden");
+    return;
+  }
+  vazio.classList.add("hidden");
+
+  tbody.innerHTML = transacoes.map(t => `
+    <tr class="border-b border-slate-100" data-id="${t.id}">
+      <td class="py-2 pr-2">${t.data}</td>
+      <td class="py-2 pr-2">
+        <span class="text-xs px-2 py-0.5 rounded-full ${t.tipo === "receita" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}">${t.tipo}</span>
+      </td>
+      <td class="py-2 pr-2">${nomeConta(t.conta_id)}</td>
+      <td class="py-2 pr-2">${nomeCategoria(t.categoria_id)}</td>
+      <td class="py-2 pr-2 text-slate-500">${t.descricao || ""}</td>
+      <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(t.valor)}</td>
+      <td class="py-2 pr-2 text-xs text-slate-400">${t.status}</td>
+      <td class="py-2 pr-2 text-right">
+        <button class="text-red-500 hover:underline text-xs" data-excluir="${t.id}">excluir</button>
+      </td>
+    </tr>
+  `).join("");
+
+  tbody.querySelectorAll("[data-excluir]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Excluir este lançamento?")) return;
+      try {
+        await api("excluir-transacao", { method: "POST", body: { id: Number(btn.dataset.excluir) } });
+        await carregarTransacoes(filtrosAtuais());
+      } catch (e) {
+        mostrarErro(e.message);
+      }
+    });
+  });
+}
+
+function filtrosAtuais() {
+  const filtros = {};
+  const inicio = document.getElementById("filtroInicio").value;
+  const fim = document.getElementById("filtroFim").value;
+  const tipo = document.getElementById("filtroTipo").value;
+  const conta = document.getElementById("filtroConta").value;
+  if (inicio) filtros.periodo_inicio = inicio;
+  if (fim) filtros.periodo_fim = fim;
+  if (tipo) filtros.tipo = tipo;
+  if (conta) filtros.conta_id = conta;
+  return filtros;
+}
+
+document.getElementById("btnFiltrar").addEventListener("click", () => carregarTransacoes(filtrosAtuais()));
+document.getElementById("btnLimparFiltro").addEventListener("click", () => {
+  document.getElementById("filtroInicio").value = "";
+  document.getElementById("filtroFim").value = "";
+  document.getElementById("filtroTipo").value = "";
+  document.getElementById("filtroConta").value = "";
+  carregarTransacoes();
+});
+
+// Filtra o select de categoria pelo tipo escolhido no formulário de novo lançamento
+document.querySelector('#formTransacao [name="tipo"]').addEventListener("change", (e) => {
+  const tipo = e.target.value;
+  document.querySelectorAll("#selectCategoria option[data-tipo]").forEach(opt => {
+    opt.hidden = tipo && opt.dataset.tipo !== tipo;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Formulários
+// ---------------------------------------------------------------------------
+document.getElementById("formTransacao").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const dados = Object.fromEntries(new FormData(form).entries());
+  if (!dados.categoria_id) delete dados.categoria_id;
+  dados.valor = Number(dados.valor);
+
+  try {
+    await api("criar-transacao", { method: "POST", body: dados });
+    form.reset();
+    await carregarTransacoes(filtrosAtuais());
+  } catch (e) {
+    mostrarErro(e.message);
+  }
+});
+
+document.getElementById("formCategoria").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const dados = Object.fromEntries(new FormData(form).entries());
+  try {
+    await api("criar-categoria", { method: "POST", body: dados });
+    form.reset();
+    await carregarCategorias();
+  } catch (e) {
+    mostrarErro(e.message);
+  }
+});
+
+document.getElementById("formConta").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const dados = Object.fromEntries(new FormData(form).entries());
+  dados.saldo_inicial = dados.saldo_inicial ? Number(dados.saldo_inicial) : 0;
+  try {
+    await api("criar-conta", { method: "POST", body: dados });
+    form.reset();
+    await carregarContas();
+  } catch (e) {
+    mostrarErro(e.message);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Resumo
+// ---------------------------------------------------------------------------
+async function carregarResumo() {
+  const query = {};
+  const inicio = document.getElementById("resumoInicio").value;
+  const fim = document.getElementById("resumoFim").value;
+  if (inicio) query.periodo_inicio = inicio;
+  if (fim) query.periodo_fim = fim;
+
+  try {
+    const resumo = await api("resumo-periodo", { query });
+
+    document.getElementById("totalReceitas").textContent = formatarMoeda(resumo.totais.receitas);
+    document.getElementById("totalDespesas").textContent = formatarMoeda(resumo.totais.despesas);
+    document.getElementById("totalSaldo").textContent = formatarMoeda(resumo.totais.saldo);
+
+    document.getElementById("saldoPorConta").innerHTML = resumo.saldo_por_conta.map(c => `
+      <div class="border border-slate-200 rounded-lg p-3">
+        <p class="text-xs text-slate-500">${c.nome}</p>
+        <p class="text-lg font-semibold">${formatarMoeda(c.saldo)}</p>
+      </div>
+    `).join("") || '<p class="text-slate-400 text-sm">Nenhuma conta cadastrada.</p>';
+
+    document.getElementById("tabelaCategorias").innerHTML = resumo.por_categoria.map(c => `
+      <tr class="border-b border-slate-100">
+        <td class="py-2 pr-2">${nomeCategoria(c.categoria_id)}</td>
+        <td class="py-2 pr-2 text-right text-emerald-600">${formatarMoeda(c.receita)}</td>
+        <td class="py-2 pr-2 text-right text-red-500">${formatarMoeda(c.despesa)}</td>
+      </tr>
+    `).join("") || '<tr><td colspan="3" class="text-slate-400 py-3">Nenhum lançamento no período.</td></tr>';
+  } catch (e) {
+    mostrarErro(e.message);
+  }
+}
+
+document.getElementById("btnAtualizarResumo").addEventListener("click", carregarResumo);
+
+// ---------------------------------------------------------------------------
+// Gate de acesso
+// ---------------------------------------------------------------------------
+function mostrarApp() {
+  document.getElementById("appGate").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+}
+function mostrarGate(mensagemErro) {
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("appGate").classList.remove("hidden");
+  const erroGate = document.getElementById("erroGate");
+  if (mensagemErro) {
+    erroGate.textContent = mensagemErro;
+    erroGate.classList.remove("hidden");
+  } else {
+    erroGate.classList.add("hidden");
+  }
+}
+
+async function iniciarApp() {
+  await carregarEmpresa();
+  mostrarApp();
+  await Promise.all([carregarCategorias(), carregarContas()]);
+  await carregarTransacoes();
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  document.querySelector('#formTransacao [name="data"]').value = hoje;
+}
+
+document.getElementById("formGate").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const token = new FormData(e.target).get("token").trim();
+  setToken(token);
+  try {
+    await iniciarApp();
+  } catch (err) {
+    clearToken();
+    mostrarGate(err.message);
+  }
+});
+
+document.getElementById("btnTrocarToken").addEventListener("click", () => {
+  clearToken();
+  mostrarGate();
+});
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+(async function init() {
+  // ?token=... permite mandar um link pronto pra empresa (em vez de ditar o código por telefone)
+  const params = new URLSearchParams(location.search);
+  const tokenDaUrl = params.get("token");
+  if (tokenDaUrl) {
+    setToken(tokenDaUrl);
+    params.delete("token");
+    history.replaceState(null, "", location.pathname + (params.toString() ? `?${params}` : ""));
+  }
+
+  if (!getToken()) {
+    mostrarGate();
+    return;
+  }
+
+  try {
+    await iniciarApp();
+  } catch (err) {
+    clearToken();
+    mostrarGate(err.message);
+  }
+})();
+</script>
+
+</body>
+</html>

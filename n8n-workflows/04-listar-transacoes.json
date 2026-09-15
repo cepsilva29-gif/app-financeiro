@@ -1,0 +1,356 @@
+{
+  "name": "financeiro - listar-transacoes",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "financeiro/listar-transacoes",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "9063c58a-f7c6-4ac5-a017-0a27dbf67331",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1000,
+        0
+      ],
+      "webhookId": "93fd8d4d-4b75-4062-951c-f5681554d55f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.headers['x-empresa-token'] }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7a73a5ad-aa11-431c-ab17-a71b4d8cf78f",
+      "name": "Token Presente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Token de acesso ausente.\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 401
+        }
+      },
+      "id": "8bb951ce-e76d-44e4-bddd-fd97bc3506ba",
+      "name": "Responder Token Ausente",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "empresas",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "access_token",
+              "condition": "eq",
+              "keyValue": "={{ $json.headers['x-empresa-token'] }}"
+            },
+            {
+              "keyName": "ativo",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "62ec7d59-f8b0-4835-8071-ba88cc8c673f",
+      "name": "Resolver Empresa",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { encontrada: false } }];\nreturn [{ json: { encontrada: true, empresa_id: rows[0].id } }];"
+      },
+      "id": "938ab18d-fc60-4c1b-810a-49d7573953d3",
+      "name": "Checar Empresa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.encontrada }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ca810570-4081-4c07-93c2-2b05e4d1f8dc",
+      "name": "Empresa Encontrada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Token de acesso invalido.\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 401
+        }
+      },
+      "id": "5a0037d4-6d32-4f32-bcb2-e54ff4236dc4",
+      "name": "Responder Token Invalido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "transacoes",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "empresa_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Checar Empresa').first().json.empresa_id }}"
+            }
+          ]
+        }
+      },
+      "id": "77a3c100-3d88-4130-8f79-f76056219e10",
+      "name": "Buscar Transacoes (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -50
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = $('Webhook').first().json.query || {};\nlet rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (q.conta_id) rows = rows.filter(r => String(r.conta_id) === String(q.conta_id));\nif (q.categoria_id) rows = rows.filter(r => String(r.categoria_id) === String(q.categoria_id));\nif (q.tipo) rows = rows.filter(r => r.tipo === q.tipo);\nif (q.periodo_inicio) rows = rows.filter(r => r.data >= q.periodo_inicio);\nif (q.periodo_fim) rows = rows.filter(r => r.data <= q.periodo_fim);\nrows.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));\nreturn [{ json: { sucesso: true, total: rows.length, transacoes: rows } }];"
+      },
+      "id": "c4727505-7689-400a-b6c2-25c472b4cb5f",
+      "name": "Filtrar E Responder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -50
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 200
+        }
+      },
+      "id": "670c4c57-380c-40a8-932e-172ea7df4851",
+      "name": "Responder Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        -50
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Token Presente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Presente?": {
+      "main": [
+        [
+          {
+            "node": "Resolver Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Token Ausente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver Empresa": {
+      "main": [
+        [
+          {
+            "node": "Checar Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Empresa": {
+      "main": [
+        [
+          {
+            "node": "Empresa Encontrada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Empresa Encontrada?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Transacoes (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Token Invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Transacoes (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Filtrar E Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar E Responder": {
+      "main": [
+        [
+          {
+            "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
