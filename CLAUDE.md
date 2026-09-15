@@ -55,6 +55,15 @@ owner. Keep new docs and UI copy in Portuguese too.
   itself, calling a new, deliberately unauthenticated `12-cadastro-publico` workflow. See "Public
   self-service signup" below — in particular, this has **no abuse protection** (no captcha, no
   rate limit) by explicit, informed user decision; don't assume that's an oversight to "fix".
+- **Matriz/filial (parent/branch) support added** (2026-09-15) — one empresa can be a filial of
+  another (`empresas.matriz_id`). A matriz's own token can act on behalf of any of its filiais by
+  passing `empresa_id` in the request; every workflow's shared auth prefix verifies that
+  permission server-side on every call. See "Matriz/filial" below — this touched
+  `buildAuthPrefix()` and therefore **every one of the 10 workflows that use it** had to be
+  recreated, not just edited. A real bug was caught and fixed during this work (an inverted
+  IF-branch in the new logic that made *every* request take the "verify a different empresa"
+  path, including ones with no override at all) — see that section for what to watch for if this
+  logic is ever touched again.
 
 ## Architecture
 
@@ -95,12 +104,17 @@ previsto/confirmado, origem manual/importado, FKs to conta+categoria). Two compo
 
 ### Deployed workflows (`n8n-workflows/`)
 
-Every workflow starts the same shared auth prefix (`Token Presente? (IF) → Resolver Empresa
-(Supabase getAll empresas by access_token+ativo) → Checar Empresa (Code, collapses to {encontrada,
-empresa_id}) → Empresa Encontrada? (IF)`), 401s on either false branch (`Token de acesso ausente.`
-vs `Token de acesso invalido.`) — built once as `buildAuthPrefix()` in the build scripts so all 10
-workflows share the exact same check. Files are the exact JSON exported after live testing
-(nodes/connections/settings only — n8n-managed fields like `versionId`/`shared` stripped).
+Every workflow starts the same shared auth prefix, built once as `buildAuthPrefix()` in
+`n8n_lib.mjs` so all 10 workflows that need per-empresa auth share the exact same check (the other
+2 — `11-onboarding`, `12-cadastro-publico` — don't, see their own entries below). As of the
+matriz/filial work (2026-09-15) the prefix is longer than just token resolution — see "Matriz/filial"
+below for the full graph and why. The one invariant every downstream workflow script relies on:
+**the prefix always ends at a node literally named `Checar Empresa`**, carrying at minimum
+`{encontrada: true, empresa_id}` (plus every other column of whichever empresa row was ultimately
+resolved) — every workflow's own code references `$('Checar Empresa').first().json.empresa_id`
+(or other fields on it) without needing to know or care whether an override happened upstream.
+Files are the exact JSON exported after live testing (nodes/connections/settings only —
+n8n-managed fields like `versionId`/`shared` stripped).
 
 - **`01-criar-categoria`** (`POST /webhook/financeiro/criar-categoria`) — validates
   `nome`+`tipo`, rejects a duplicate (empresa_id, nome, tipo) with 409 before insert.
@@ -136,12 +150,19 @@ Only `previsto` vs `confirmado` status exists; `resumo-periodo` and account bala
 
 - **`08-listar-categorias`** / **`09-listar-contas`** (`GET .../listar-categorias`,
   `GET .../listar-contas`) — added during Fase 3; not in the original plan, but the transaction
-  form has no way to populate its conta/categoria selects without them. Same
-  `Webhook → Resolver Empresa → Checar Empresa → Empresa Encontrada?` shell as every other
-  workflow, `matchType: allFilters` on `empresa_id` only, no filters beyond that.
-- **`10-empresa-info`** (`GET /webhook/financeiro/empresa-info`) — also added during Fase 3, for
-  the page header (empresa nome) and currency formatting (`moeda`). Returns
-  `{slug, nome, timezone, moeda}` for the resolved empresa.
+  form has no way to populate its conta/categoria selects without them. Same shared
+  `buildAuthPrefix()` shell as every other workflow, `matchType: allFilters` on `empresa_id` only,
+  no filters beyond that.
+- **`10-empresa-info`** (`GET /webhook/financeiro/empresa-info`) — also added during Fase 3.
+  Returns `{id, slug, nome, timezone, moeda, filiais}` for the **resolved** empresa (the active
+  one — itself or, via `empresa_id` override, a filial being viewed as the matriz) — reads
+  `$('Checar Empresa')`, not `$('Resolver Empresa')` (which is always the *token's own* row,
+  wrong once matriz/filial override exists). `filiais` (`[{id, slug, nome}]`) is a parallel
+  dead-end branch off `Checar Empresa` (`Buscar Filiais`, same "read a sibling branch's output by
+  name" pattern as `07-resumo-periodo`) filtered by `matriz_id eq` the **token's own** empresa_id
+  (via `$('Checar Empresa Token')`, not the resolved one) — deliberately constant regardless of
+  which filial is currently being viewed, so the frontend's switcher doesn't lose its own list of
+  options the moment you switch away from the matriz.
 - **`11-onboarding`** (`POST /webhook/financeiro/onboarding`, Fase 5) — the one workflow that does
   **not** use `buildAuthPrefix()`/`X-Empresa-Token`, because it creates an empresa rather than
   acting on one that already exists. Protected instead by n8n's built-in webhook `authentication:
@@ -151,10 +172,14 @@ Only `previsto` vs `confirmado` status exists; `resumo-periodo` and account bala
   `onboarding_admin_token:`, never in this repo's workflow JSON — same "credential, not env var,
   not hardcoded" pattern as the Supabase key). **Never confuse this admin token with an empresa's
   `access_token`** — the admin token can create empresas; an empresa token can only touch its own
-  data. Body: `{slug, nome, email, moeda?, timezone?, categorias?: [{nome,tipo}], conta_inicial?:
-  {nome, tipo, saldo_inicial}}` — `email` is **required** (see "Onboarding email" below for why);
-  `categorias`/`conta_inicial` default to the same starter set `demo` has in `schema.sql` if
-  omitted. Generates the new empresa's `access_token` itself (`'fin_' +
+  data. Body: `{slug, nome, email, matriz_slug?, moeda?, timezone?, categorias?: [{nome,tipo}],
+  conta_inicial?: {nome, tipo, saldo_inicial}}` — `email` is **required** (see "Onboarding email"
+  below for why); `categorias`/`conta_inicial` default to the same starter set `demo` has in
+  `schema.sql` if omitted; `matriz_slug` optionally links the new empresa as a filial (see
+  "Matriz/filial" below — resolved and validated, 400 if the named matriz doesn't exist, is
+  inactive, or is itself a filial, *before* `Criar Empresa` runs, via the same
+  resolve-then-normalize-to-one-node-name pattern used for the auth prefix's target check, here
+  named `Matriz Resolvida`). Generates the new empresa's `access_token` itself (`'fin_' +
   randomBytes(16).toString('hex')`, with a `Math.random()` fallback in case `require('crypto')`
   ever gets sandboxed in this Code node — confirmed `require('crypto')` works today, but the
   fallback costs nothing to keep). Rejects a taken `slug` with 409, invalid input with 400.
@@ -246,6 +271,76 @@ working credential handed back in the same HTTP response that has no rate limiti
   and this call must never send one), shows the response `mensagem` in place (green
   `#sucessoCadastro` / red `#erroCadastro`), and resets the form on success.
 
+### Matriz/filial
+
+Added 2026-09-15, after the user asked specifically for "my empresa can see all its branches"
+and confirmed the tradeoffs (touches every workflow; negligible perf cost — one extra indexed
+lookup, only on requests that actually specify an override). Two-level only: `empresas.matriz_id`
+(nullable self-FK) — null means independent or *is* a matriz; set means "is a filial of that row."
+A filial cannot itself have filiais (enforced in `11-onboarding`'s `Checar Matriz` node, not by a
+DB constraint — checks the target's own `matriz_id is null` before allowing it to be used as a
+new empresa's matriz).
+
+**How a matriz acts on a filial's behalf**: its own `access_token` stays the single credential
+(no separate "matriz mode" token). Any request to any of the 10 `buildAuthPrefix()` workflows can
+include `empresa_id` (body field on POST, query param on GET) naming a *different* empresa than
+the one the token resolves to. The extended prefix (in `n8n_lib.mjs`, replacing the old
+token-only version):
+
+```
+Token Presente? →(false) Responder Token Ausente (401)
+  →(true) Resolver Empresa (by access_token) → Checar Empresa Token (Code: {empresa_id, empresa: <full row>})
+  → Empresa Encontrada? →(false) Responder Token Invalido (401)
+    →(true) Determinar Alvo (Code: reads body/query.empresa_id; if absent or === token's own id,
+             {precisaVerificar:false, empresa_id: token's, empresa: token's row};
+             else {precisaVerificar:true, empresa_id_alvo, empresa_token_id})
+    → Precisa Verificar Alvo? →(true, index 0) Resolver Empresa Alvo (by id+ativo)
+        → Checar Permissao Filial (Code: permitido = alvo.matriz_id === empresa_token_id)
+        → Permitido? →(true) Checar Empresa   →(false) Responder Sem Permissao (403)
+      →(false, index 1) Checar Empresa   ← both paths converge here
+```
+
+- **The convergence trick**: the final node is deliberately named `Checar Empresa` — same name
+  the old (pre-matriz) prefix used for token resolution — specifically so every downstream
+  workflow's existing `$('Checar Empresa').first().json.empresa_id` (and now, other fields too;
+  see below) keeps working with **zero changes to the 10 individual workflow build scripts**. Only
+  `n8n_lib.mjs` changed; re-running every script picked up the new prefix automatically. This is
+  why the token-resolution step itself got renamed to `Checar Empresa Token` — freeing up
+  `Checar Empresa` to mean "the final resolved empresa for this request" instead of "the token's
+  empresa." `Checar Empresa`'s body is now just `{ encontrada: true, empresa_id: $json.empresa_id,
+  ...$json.empresa }` — it spreads the *entire resolved empresa row* through, not just the id, so
+  anything downstream that wants `nome`/`moeda`/`slug`/etc. of whichever empresa is actually being
+  acted on can read it from the same node it already references (used by `10-empresa-info`).
+  Fan-in (two different IF branches both targeting the same node name) is a normal, supported n8n
+  pattern here — exactly one branch fires per request since they're mutually exclusive, so
+  `Checar Empresa` runs exactly once regardless of which path was taken.
+- **Bug caught during this work, now fixed**: n8n IF-node output index 0 is the *true* branch,
+  index 1 is *false* (confirmed and relied on throughout this project). The first version of
+  `Precisa Verificar Alvo?`'s wiring had this backwards — index 0 (true, "needs verification") was
+  wired to `Checar Empresa` (skip) and index 1 (false, "no override") was wired to `Resolver
+  Empresa Alvo` (go verify), which crashed *every* request, including ones with no override at
+  all, on `invalid input syntax for type bigint: "undefined"` (from `empresa_id_alvo` being
+  undefined). Caught immediately by testing (`empresa-info` and `listar-categorias` both returned
+  HTTP 200 with an empty body — silent-looking failure, only visible via `GET
+  /api/v1/executions/{id}?includeData=true`'s `resultData.error`, not from the HTTP response
+  itself). The exact same inversion was independently made in `11-onboarding`'s new `Tem Matriz?`
+  IF node and fixed the same way. **If you add a new IF node to this codebase, double-check which
+  index is wired to which branch before assuming it's right** — this bug produced no error at the
+  HTTP layer, only in the n8n execution log.
+- **Permission check is per-request, not cached**: every call re-verifies `alvo.matriz_id ===
+  token's empresa_id` against the live DB row — a filial removed from a matriz (if that ever
+  becomes possible; no workflow does it today) would lose matriz access on the very next request,
+  no token rotation needed.
+- **Security properties verified by testing** (all with real created-then-deleted matriz/filial
+  pairs, not just read-through of the logic): matriz token + filial's `empresa_id` → succeeds,
+  writes land on the filial (confirmed by then reading them back with the *filial's own* token);
+  unrelated empresa's token + filial's `empresa_id` → 403; filial's own token + its matriz's
+  `empresa_id` → 403 (a filial is never anyone's matriz); matriz token + a totally unrelated
+  empresa's `empresa_id` → 403; matriz token + its *own* `empresa_id` explicitly → identical to
+  omitting it entirely (no-op case, confirmed working).
+- **`10-empresa-info`'s `filiais` list** is what the frontend's switcher renders — see "Matriz
+  switcher" under Frontend below.
+
 ### Frontend (`frontend/index.html`)
 
 Single static file, vanilla JS, Tailwind via CDN, no build step. Gated behind a token screen
@@ -255,6 +350,29 @@ All API calls go through one `api(path, {method, query, body})` helper in the `C
 `https://n8n.engenhariadedadosn8n.shop/webhook/financeiro` namespace, which attaches the stored
 token as the `X-Empresa-Token` header on every call automatically — no call site needs to remember
 auth, and none of them send `slug` anywhere (there's nothing left in this project that reads it).
+`api()` also attaches `empresa_id: state.empresaAtivaId` (query for GET, body for POST) to
+**every** call whenever that state field is set — including when it equals the token's own
+empresa, which the backend treats as a harmless no-op, so the frontend never needs conditional
+logic here.
+
+**Matriz switcher**: `state.empresaHome` (`{id, nome}`, captured once from the *first*
+`empresa-info` call of the session — before any override, so it's always the token's own identity,
+never a filial's) vs. `state.empresa` (whichever empresa is currently being *viewed*, refreshed on
+every switch) vs. `state.empresaAtivaId` (drives the `api()` override above). A
+`#seletorEmpresa` `<select>` in the header is hidden unless `state.empresa.filiais.length > 0`;
+its options are `state.empresaHome` labeled "(própria)" plus each filial. Choosing one:
+sets `state.empresaAtivaId`, persists it to `localStorage` (`financeiro_empresa_ativa_id` — a UI
+convenience, not a credential; safe to lose), re-fetches `empresa-info` (now carrying the override,
+so `state.empresa` becomes the filial's own data — nome/slug/moeda all update in the header) and
+reloads categorias/contas/transacoes for the newly active empresa. `carregarEmpresa()` on boot
+validates the persisted choice is still legitimate (equals home's id, or appears in the fresh
+`filiais` list) before trusting it — handles both "filial was unlinked since last visit" and "a
+completely different token logged in in this same browser, so the old saved id means nothing"
+(confirmed by testing: logging in directly as the filial, with a stale matriz-scoped id still in
+`localStorage` from a prior session, correctly ignores it and resolves to the filial's own empresa
+— the validation checks against *this* token's actual home+filiais, not just "is it a valid id
+somewhere"). `clearToken()` (called on logout) also clears this key, so a fresh login never
+inherits a stale selection from a different company's session.
 
 Client-side joins: `state.categorias`/`state.contas` are loaded once on boot and looked up by id
 (`nomeCategoria()`/`nomeConta()`) to render names in the lançamentos table and resumo — the backend
@@ -283,6 +401,15 @@ up via direct API/SQL calls afterward, not through the UI (see confirm() note ab
 Also verified after adding public signup: nome→slug auto-fill, duplicate-slug error rendering,
 panel toggling both directions, and the full loop (signup → real email received → link → logged
 into the freshly-created empresa with its default categorias/conta present).
+
+Also verified after adding the matriz switcher, with a real created-then-deleted matriz+filial
+pair: switcher hidden for an empresa with no filiais (`demo`); visible and correctly populated for
+a matriz; switching to a filial updates nome/slug/categorias/contas/transacoes all at once and a
+lançamento created there lands on the filial (confirmed via the filial's *own* token separately);
+switching back to "(própria)" shows zero lançamentos, i.e. the filial's data doesn't leak into the
+matriz's view; the choice persists across a page reload; logging in directly with the filial's own
+token (fresh page load, no switcher shown since it has no filiais of its own) correctly ignores a
+stale matriz-scoped `localStorage` value left over from the previous session in the same browser.
 
 ### Auth (Fase 4 — done)
 

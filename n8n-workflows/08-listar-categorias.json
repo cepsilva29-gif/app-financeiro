@@ -10,7 +10,7 @@
           "allowedOrigins": "*"
         }
       },
-      "id": "80e7fc6b-6adf-44bd-b813-5fab19a49f56",
+      "id": "0ec3eaa2-d772-494b-b23b-26684bd8c728",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -18,7 +18,7 @@
         -800,
         0
       ],
-      "webhookId": "27501dac-ac7c-4a2e-b2bf-d26cd8b81cdb"
+      "webhookId": "230c47b3-7d59-459c-8e59-f247ef3b67fc"
     },
     {
       "parameters": {
@@ -44,7 +44,7 @@
         },
         "options": {}
       },
-      "id": "076bae95-0143-4b04-85f9-d1d4028bfd13",
+      "id": "137f6e6e-aa62-4f38-82f0-9a2b16c434b1",
       "name": "Token Presente?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -69,13 +69,13 @@
           "responseCode": 401
         }
       },
-      "id": "5820f92f-3682-483f-a953-39c2ccffbe2f",
+      "id": "4751d0dc-7d6b-4b8e-95af-369a93618ce8",
       "name": "Responder Token Ausente",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
         -400,
-        250
+        400
       ]
     },
     {
@@ -99,7 +99,7 @@
           ]
         }
       },
-      "id": "90229075-47c6-4173-893d-b4ca0d47cee8",
+      "id": "df7a6e4a-81bf-47b7-96fc-b950dca381b3",
       "name": "Resolver Empresa",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -117,10 +117,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { encontrada: false } }];\nreturn [{ json: { encontrada: true, empresa_id: rows[0].id } }];"
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { encontrada: false } }];\nreturn [{ json: { encontrada: true, empresa_id: rows[0].id, empresa: rows[0] } }];"
       },
-      "id": "8a0fd492-eb94-44fe-91bc-e6d4c34c0364",
-      "name": "Checar Empresa",
+      "id": "d28e0fdf-9837-49cb-8192-90e24bb377d8",
+      "name": "Checar Empresa Token",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -152,7 +152,7 @@
         },
         "options": {}
       },
-      "id": "84101255-c1d1-4264-abd1-dbbd87339622",
+      "id": "aa0d8bfb-2fa0-42cd-9492-5a9e7a628644",
       "name": "Empresa Encontrada?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -177,13 +177,180 @@
           "responseCode": 401
         }
       },
-      "id": "5d0c7a42-e671-4cbb-b667-03f6fb170d7e",
+      "id": "f6dfe4ee-bfd5-4428-b551-d2eac0e1015e",
       "name": "Responder Token Invalido",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
         200,
-        150
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const w = $('Webhook').first().json;\nconst raw = (w.body && w.body.empresa_id !== undefined) ? w.body.empresa_id : ((w.query && w.query.empresa_id !== undefined) ? w.query.empresa_id : undefined);\nconst tokenEmpresa = $('Checar Empresa Token').first().json.empresa;\nconst alvo = (raw !== undefined && raw !== null && raw !== '') ? Number(raw) : tokenEmpresa.id;\nif (!Number.isFinite(alvo) || alvo === tokenEmpresa.id) return [{ json: { precisaVerificar: false, empresa_id: tokenEmpresa.id, empresa: tokenEmpresa } }];\nreturn [{ json: { precisaVerificar: true, empresa_id_alvo: alvo, empresa_token_id: tokenEmpresa.id } }];"
+      },
+      "id": "4f921819-b4af-4c2c-ac5b-598a22ad28b6",
+      "name": "Determinar Alvo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.precisaVerificar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7c384de9-81b7-4d9e-b318-aa5531c6bc10",
+      "name": "Precisa Verificar Alvo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "empresas",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.empresa_id_alvo }}"
+            },
+            {
+              "keyName": "ativo",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "5dca7483-bdf5-489a-a298-8d8a4db04f34",
+      "name": "Resolver Empresa Alvo",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -220
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nconst tokenEmpresaId = $('Determinar Alvo').first().json.empresa_token_id;\nif (rows.length === 0) return [{ json: { permitido: false } }];\nconst alvo = rows[0];\nreturn [{ json: { permitido: alvo.matriz_id === tokenEmpresaId, empresa_id: alvo.id, empresa: alvo } }];"
+      },
+      "id": "b921c811-08ae-4a03-9088-337ae6b1ec4c",
+      "name": "Checar Permissao Filial",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.permitido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c9f34c3d-3ed2-4c73-9e34-584b0dde1189",
+      "name": "Permitido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Sem permissao para acessar essa empresa.\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 403
+        }
+      },
+      "id": "4bd5b4f9-5ff8-4e0c-8a99-bd4edde03f23",
+      "name": "Responder Sem Permissao",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { encontrada: true, empresa_id: $json.empresa_id, ...$json.empresa } }];"
+      },
+      "id": "cea55ace-fce6-4628-89a7-62bc5f471394",
+      "name": "Checar Empresa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -80
       ]
     },
     {
@@ -202,7 +369,7 @@
           ]
         }
       },
-      "id": "ee5697b2-98e2-4fca-8c89-319ba23c6cfc",
+      "id": "8af80d8b-2479-4ed2-a07e-a895d4e9a44b",
       "name": "Buscar categorias (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -222,7 +389,7 @@
       "parameters": {
         "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { sucesso: true, categorias: rows } }];"
       },
-      "id": "3fb02523-97d1-49d1-ad1d-7e0648772276",
+      "id": "b1120a58-7f12-4ba5-82ef-4788288aa37b",
       "name": "Montar Resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -247,7 +414,7 @@
           "responseCode": 200
         }
       },
-      "id": "9bf8be8b-ddd3-457c-8dee-846364d4874d",
+      "id": "aacd32d6-eb73-41c6-8368-e4b990dfc82d",
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -291,14 +458,14 @@
       "main": [
         [
           {
-            "node": "Checar Empresa",
+            "node": "Checar Empresa Token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Checar Empresa": {
+    "Checar Empresa Token": {
       "main": [
         [
           {
@@ -313,7 +480,7 @@
       "main": [
         [
           {
-            "node": "Buscar categorias (Supabase)",
+            "node": "Determinar Alvo",
             "type": "main",
             "index": 0
           }
@@ -321,6 +488,86 @@
         [
           {
             "node": "Responder Token Invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determinar Alvo": {
+      "main": [
+        [
+          {
+            "node": "Precisa Verificar Alvo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precisa Verificar Alvo?": {
+      "main": [
+        [
+          {
+            "node": "Resolver Empresa Alvo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Checar Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver Empresa Alvo": {
+      "main": [
+        [
+          {
+            "node": "Checar Permissao Filial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Permissao Filial": {
+      "main": [
+        [
+          {
+            "node": "Permitido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Permitido?": {
+      "main": [
+        [
+          {
+            "node": "Checar Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Sem Permissao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Empresa": {
+      "main": [
+        [
+          {
+            "node": "Buscar categorias (Supabase)",
             "type": "main",
             "index": 0
           }

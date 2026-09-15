@@ -67,6 +67,7 @@
     <div>
       <h1 id="empresaNome" class="text-2xl font-bold text-slate-900">Carregando...</h1>
       <p class="text-sm text-slate-500">Controle de gastos e receitas — <span id="empresaSlug"></span></p>
+      <select id="seletorEmpresa" class="hidden mt-1 text-sm border rounded-lg px-2 py-1"></select>
     </div>
     <div class="text-right">
       <div id="headerStatus" class="text-sm text-slate-400"></div>
@@ -264,7 +265,17 @@ function setToken(token) {
   try { localStorage.setItem(TOKEN_KEY, token); } catch { /* localStorage indisponível — segue só em memória nesta sessão */ }
 }
 function clearToken() {
-  try { localStorage.removeItem(TOKEN_KEY); } catch {}
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(EMPRESA_ATIVA_KEY); } catch {}
+}
+
+// Matriz/filial: qual empresa está "ativa" agora (pode ser a própria, ou uma filial, se o token
+// for de uma matriz). Persistido por conveniência — não é credencial, só uma preferência de UI.
+const EMPRESA_ATIVA_KEY = "financeiro_empresa_ativa_id";
+function getEmpresaAtivaSalva() {
+  try { const v = localStorage.getItem(EMPRESA_ATIVA_KEY); return v ? Number(v) : null; } catch { return null; }
+}
+function setEmpresaAtivaSalva(id) {
+  try { localStorage.setItem(EMPRESA_ATIVA_KEY, String(id)); } catch {}
 }
 
 // ---------------------------------------------------------------------------
@@ -274,12 +285,19 @@ async function api(path, { method = "GET", query = {}, body = null } = {}) {
   let url = `${CONFIG.API_BASE}/${path}`;
   const options = { method, headers: { "X-Empresa-Token": getToken() || "" } };
 
+  const q = { ...query };
+  const b = { ...(body || {}) };
+  if (state.empresaAtivaId) {
+    if (method === "GET") q.empresa_id = state.empresaAtivaId;
+    else b.empresa_id = state.empresaAtivaId;
+  }
+
   if (method === "GET") {
-    const qs = new URLSearchParams(query);
+    const qs = new URLSearchParams(q);
     if ([...qs].length) url += `?${qs.toString()}`;
   } else {
     options.headers["Content-Type"] = "application/json";
-    options.body = JSON.stringify(body || {});
+    options.body = JSON.stringify(b);
   }
 
   const res = await fetch(url, options);
@@ -301,7 +319,9 @@ function mostrarErro(msg) {
 // Estado
 // ---------------------------------------------------------------------------
 const state = {
-  empresa: null,
+  empresa: null,       // info da empresa atualmente ativa (própria ou filial, se estiver "vendo como matriz")
+  empresaHome: null,   // {id, nome} da empresa do próprio token — constante, não muda ao trocar de filial
+  empresaAtivaId: null,
   categorias: [],
   contas: [],
   transacoes: [],
@@ -338,12 +358,57 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 // Carregamento inicial
 // ---------------------------------------------------------------------------
 async function carregarEmpresa() {
-  const { empresa } = await api("empresa-info");
+  // 1ª chamada: empresaAtivaId ainda não está setado, então não manda override — isto é sempre
+  // a empresa do próprio token (a "home"), nunca uma filial.
+  const primeira = await api("empresa-info");
+  state.empresaHome = { id: primeira.empresa.id, nome: primeira.empresa.nome };
+
+  const salvo = getEmpresaAtivaSalva();
+  const filiais = primeira.empresa.filiais || [];
+  const salvoValido = salvo && (salvo === primeira.empresa.id || filiais.some(f => f.id === salvo));
+  state.empresaAtivaId = salvoValido ? salvo : primeira.empresa.id;
+
+  if (state.empresaAtivaId === primeira.empresa.id) {
+    aplicarInfoEmpresa(primeira.empresa);
+  } else {
+    const segunda = await api("empresa-info");
+    aplicarInfoEmpresa(segunda.empresa);
+  }
+}
+
+function aplicarInfoEmpresa(empresa) {
   state.empresa = empresa;
   document.getElementById("empresaNome").textContent = empresa.nome;
   document.getElementById("empresaSlug").textContent = empresa.slug;
   document.getElementById("headerStatus").textContent = "";
+  renderizarSeletorEmpresa();
 }
+
+function renderizarSeletorEmpresa() {
+  const sel = document.getElementById("seletorEmpresa");
+  const filiais = state.empresa.filiais || [];
+  if (filiais.length === 0) {
+    sel.classList.add("hidden");
+    return;
+  }
+  sel.classList.remove("hidden");
+  const opcoes = [{ id: state.empresaHome.id, nome: state.empresaHome.nome + " (própria)" }, ...filiais];
+  sel.innerHTML = opcoes.map(o => `<option value="${o.id}">${o.nome}</option>`).join("");
+  sel.value = String(state.empresaAtivaId);
+}
+
+document.getElementById("seletorEmpresa").addEventListener("change", async (e) => {
+  state.empresaAtivaId = Number(e.target.value);
+  setEmpresaAtivaSalva(state.empresaAtivaId);
+  try {
+    const { empresa } = await api("empresa-info");
+    aplicarInfoEmpresa(empresa);
+    await Promise.all([carregarCategorias(), carregarContas()]);
+    await carregarTransacoes();
+  } catch (err) {
+    mostrarErro(err.message);
+  }
+});
 
 async function carregarCategorias() {
   const { categorias } = await api("listar-categorias");

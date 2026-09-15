@@ -10,7 +10,7 @@
           "allowedOrigins": "*"
         }
       },
-      "id": "a58459a2-f03d-4b76-9318-bba185540fa3",
+      "id": "282082da-26fc-4473-9d85-4a3a00c3a428",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -18,7 +18,7 @@
         -1200,
         0
       ],
-      "webhookId": "de966cf5-6bb8-4319-a4b1-573193cd71f8"
+      "webhookId": "a92da093-b73b-43c0-8da5-672607cbf2ec"
     },
     {
       "parameters": {
@@ -44,7 +44,7 @@
         },
         "options": {}
       },
-      "id": "57bac842-927e-4581-bfdf-8a37c5422543",
+      "id": "52807da0-d674-4ee1-8443-46f953b01e19",
       "name": "Token Presente?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -69,13 +69,13 @@
           "responseCode": 401
         }
       },
-      "id": "0961a1e7-588d-48aa-b0c2-ade8053a1513",
+      "id": "1dcb1d39-89c9-4145-857c-cc44785f3d70",
       "name": "Responder Token Ausente",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
         -800,
-        250
+        400
       ]
     },
     {
@@ -99,7 +99,7 @@
           ]
         }
       },
-      "id": "4cfa4844-8155-4551-88c1-39e9b9c45456",
+      "id": "534929d1-9c0d-47aa-a809-139a2c140370",
       "name": "Resolver Empresa",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -117,10 +117,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { encontrada: false } }];\nreturn [{ json: { encontrada: true, empresa_id: rows[0].id } }];"
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { encontrada: false } }];\nreturn [{ json: { encontrada: true, empresa_id: rows[0].id, empresa: rows[0] } }];"
       },
-      "id": "289e9da1-5da8-4441-81d7-5ac9f116cbc8",
-      "name": "Checar Empresa",
+      "id": "3cccf5fd-7308-4c61-8da4-58a4d2c270e6",
+      "name": "Checar Empresa Token",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -152,7 +152,7 @@
         },
         "options": {}
       },
-      "id": "dbec0e1b-f7ff-4dba-929e-83d8926b6e6f",
+      "id": "72cb2bc6-78be-4c44-a864-f2da8fa70ae1",
       "name": "Empresa Encontrada?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -177,13 +177,180 @@
           "responseCode": 401
         }
       },
-      "id": "db3ceb29-dcd8-4d0a-b7c0-67970c24af4f",
+      "id": "1b03baf5-e209-44cb-902a-1163b378559f",
       "name": "Responder Token Invalido",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
         -200,
-        150
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const w = $('Webhook').first().json;\nconst raw = (w.body && w.body.empresa_id !== undefined) ? w.body.empresa_id : ((w.query && w.query.empresa_id !== undefined) ? w.query.empresa_id : undefined);\nconst tokenEmpresa = $('Checar Empresa Token').first().json.empresa;\nconst alvo = (raw !== undefined && raw !== null && raw !== '') ? Number(raw) : tokenEmpresa.id;\nif (!Number.isFinite(alvo) || alvo === tokenEmpresa.id) return [{ json: { precisaVerificar: false, empresa_id: tokenEmpresa.id, empresa: tokenEmpresa } }];\nreturn [{ json: { precisaVerificar: true, empresa_id_alvo: alvo, empresa_token_id: tokenEmpresa.id } }];"
+      },
+      "id": "a1c4396f-8737-410a-8047-6d1203c20014",
+      "name": "Determinar Alvo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.precisaVerificar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "eb67930e-c82e-4654-9b04-46981031031c",
+      "name": "Precisa Verificar Alvo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "empresas",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.empresa_id_alvo }}"
+            },
+            {
+              "keyName": "ativo",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "2a453cb4-a796-40c1-894b-cb2123d0cc07",
+      "name": "Resolver Empresa Alvo",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -220
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nconst tokenEmpresaId = $('Determinar Alvo').first().json.empresa_token_id;\nif (rows.length === 0) return [{ json: { permitido: false } }];\nconst alvo = rows[0];\nreturn [{ json: { permitido: alvo.matriz_id === tokenEmpresaId, empresa_id: alvo.id, empresa: alvo } }];"
+      },
+      "id": "b5e52fda-dba8-4d94-8e39-e6c78cfb213a",
+      "name": "Checar Permissao Filial",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.permitido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e3b37750-bfff-445d-9de4-3ce7246d6433",
+      "name": "Permitido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        600,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Sem permissao para acessar essa empresa.\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 403
+        }
+      },
+      "id": "5b435689-8272-4dd8-9c1a-d7cb865553f3",
+      "name": "Responder Sem Permissao",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { encontrada: true, empresa_id: $json.empresa_id, ...$json.empresa } }];"
+      },
+      "id": "2804a81e-6857-4d36-b2aa-ebf964dd5a94",
+      "name": "Checar Empresa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        -80
       ]
     },
     {
@@ -202,7 +369,7 @@
           ]
         }
       },
-      "id": "b1131c95-5c69-44fa-8275-5bb030b1edb4",
+      "id": "ec5737c1-6341-4aaf-ab68-d76fdf371abf",
       "name": "Buscar Contas (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -239,7 +406,7 @@
           ]
         }
       },
-      "id": "66de33cf-604e-43be-8043-9ba056cc1fce",
+      "id": "16233335-9fed-491a-b31c-391234c81000",
       "name": "Buscar Transacoes (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -259,7 +426,7 @@
       "parameters": {
         "jsCode": "const q = $('Webhook').first().json.query || {};\nconst contas = $('Buscar Contas (Supabase)').all().map(i => i.json).filter(r => r && r.id);\nconst transacoes = $input.all().map(i => i.json).filter(r => r && r.id);\nconst emPeriodo = t => (!q.periodo_inicio || t.data >= q.periodo_inicio) && (!q.periodo_fim || t.data <= q.periodo_fim);\nconst ateFim = t => !q.periodo_fim || t.data <= q.periodo_fim;\nconst saldoPorConta = contas.map(c => {\n  const doConta = transacoes.filter(t => t.conta_id === c.id && ateFim(t));\n  const receitas = doConta.filter(t => t.tipo === 'receita').reduce((s, t) => s + Number(t.valor), 0);\n  const despesas = doConta.filter(t => t.tipo === 'despesa').reduce((s, t) => s + Number(t.valor), 0);\n  return { conta_id: c.id, nome: c.nome, saldo: Number(c.saldo_inicial) + receitas - despesas };\n});\nconst noPeriodo = transacoes.filter(emPeriodo);\nconst totalReceitas = noPeriodo.filter(t => t.tipo === 'receita').reduce((s, t) => s + Number(t.valor), 0);\nconst totalDespesas = noPeriodo.filter(t => t.tipo === 'despesa').reduce((s, t) => s + Number(t.valor), 0);\nconst porCategoriaMap = {};\nfor (const t of noPeriodo) {\n  const key = t.categoria_id === null || t.categoria_id === undefined ? 'sem_categoria' : t.categoria_id;\n  if (!porCategoriaMap[key]) porCategoriaMap[key] = { categoria_id: t.categoria_id, receita: 0, despesa: 0 };\n  porCategoriaMap[key][t.tipo] += Number(t.valor);\n}\nreturn [{ json: {\n  sucesso: true,\n  periodo: { inicio: q.periodo_inicio || null, fim: q.periodo_fim || null },\n  saldo_por_conta: saldoPorConta,\n  totais: { receitas: totalReceitas, despesas: totalDespesas, saldo: totalReceitas - totalDespesas },\n  por_categoria: Object.values(porCategoriaMap)\n} }];"
       },
-      "id": "eed8fe25-4399-46e9-af31-e40ad382ca79",
+      "id": "bbb0b446-d26f-410c-8833-b6f16e924235",
       "name": "Calcular Resumo",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -284,7 +451,7 @@
           "responseCode": 200
         }
       },
-      "id": "e1a644c6-92ff-433b-9978-5c0abaf6b299",
+      "id": "1f355bd1-653c-4b24-8dcb-ae9e39573092",
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -328,14 +495,14 @@
       "main": [
         [
           {
-            "node": "Checar Empresa",
+            "node": "Checar Empresa Token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Checar Empresa": {
+    "Checar Empresa Token": {
       "main": [
         [
           {
@@ -350,12 +517,7 @@
       "main": [
         [
           {
-            "node": "Buscar Contas (Supabase)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Buscar Transacoes (Supabase)",
+            "node": "Determinar Alvo",
             "type": "main",
             "index": 0
           }
@@ -363,6 +525,91 @@
         [
           {
             "node": "Responder Token Invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determinar Alvo": {
+      "main": [
+        [
+          {
+            "node": "Precisa Verificar Alvo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precisa Verificar Alvo?": {
+      "main": [
+        [
+          {
+            "node": "Resolver Empresa Alvo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Checar Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver Empresa Alvo": {
+      "main": [
+        [
+          {
+            "node": "Checar Permissao Filial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Permissao Filial": {
+      "main": [
+        [
+          {
+            "node": "Permitido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Permitido?": {
+      "main": [
+        [
+          {
+            "node": "Checar Empresa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Sem Permissao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Empresa": {
+      "main": [
+        [
+          {
+            "node": "Buscar Contas (Supabase)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buscar Transacoes (Supabase)",
             "type": "main",
             "index": 0
           }

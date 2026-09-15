@@ -12,8 +12,11 @@ create table empresas (
   timezone     text not null default 'America/Sao_Paulo',
   moeda        text not null default 'BRL',
   ativo        boolean not null default true,
-  criado_em    timestamptz not null default now()
+  criado_em    timestamptz not null default now(),
+  matriz_id    bigint references empresas(id)  -- null = independente ou e a propria matriz; setado = e filial dessa matriz. So 2 niveis (uma filial nao pode ter filiais) — validado na aplicacao (workflow de onboarding), nao por constraint aqui.
 );
+
+create index idx_empresas_matriz_id on empresas (matriz_id);
 
 create table categorias (
   id          bigint generated always as identity primary key,

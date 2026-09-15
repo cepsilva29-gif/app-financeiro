@@ -36,12 +36,24 @@ qualquer outro projeto.
   categorias/conta padrão e manda o link de acesso por email — não devolve o `access_token` na
   resposta (diferente do onboarding via admin). **Sem proteção contra abuso ainda** (sem captcha,
   sem limite de tentativas) — decisão consciente por enquanto, revisar se virar problema.
+- **Matriz vendo filiais**: uma empresa pode ser cadastrada como filial de outra
+  (`empresas.matriz_id`). O token da matriz continua sendo um token só, mas pode agir em nome de
+  qualquer filial dela passando `empresa_id` na requisição — o backend verifica a permissão a
+  cada chamada. No frontend, aparece um seletor no cabeçalho pra trocar entre a própria empresa e
+  as filiais, sem precisar logar de novo. Só 2 níveis (uma filial não pode ter filiais). Testado:
+  matriz criando/vendo dados de uma filial, filial vendo os próprios dados normalmente, e todo
+  acesso cruzado não autorizado (empresa não relacionada, filial tentando acessar a matriz)
+  rejeitado com 403.
 
 ## Endpoints (n8n)
 
 Toda requisição exige o header `X-Empresa-Token: <token da empresa>` — é ele, e só ele, que
 resolve qual empresa está sendo acessada (não o `slug`, que é só cosmético). A exceção é o
 onboarding, que usa um token de admin à parte (ver `CLAUDE.md`).
+
+Qualquer endpoint (exceto onboarding/cadastro-publico) aceita opcionalmente `empresa_id` (query
+no GET, body no POST) pra agir em nome de outra empresa — só funciona se essa empresa for filial
+da empresa do token; senão, 403. Ver "Matriz vendo filiais" acima.
 
 | Método | Path | Descrição |
 |---|---|---|
@@ -69,7 +81,9 @@ curl -X POST https://n8n.engenhariadedadosn8n.shop/webhook/financeiro/onboarding
 
 `email` é obrigatório — é pra onde o link de acesso é mandado automaticamente (via Resend), assim
 que a empresa é criada. `categorias` e `conta_inicial` continuam opcionais; sem eles, usa o mesmo
-conjunto padrão da `demo` (Vendas/Serviços/receita, Fornecedores/despesa, conta "Caixa").
+conjunto padrão da `demo` (Vendas/Serviços/receita, Fornecedores/despesa, conta "Caixa"). Pra
+cadastrar como **filial** de uma empresa já existente, adicione `"matriz_slug": "slug-da-matriz"`
+— rejeita se a matriz não existir, estiver inativa, ou ela mesma já for uma filial (só 2 níveis).
 
 A resposta traz `email_enviado: true/false` — se `false`, vem `email_erro` com o motivo (ex:
 domínio do Resend não verificado, endereço inválido). A empresa é criada **mesmo se o email

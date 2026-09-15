@@ -11,7 +11,7 @@
           "allowedOrigins": "*"
         }
       },
-      "id": "8942514c-52bd-42c8-861a-d7bc3ecf5529",
+      "id": "6d2edea8-ca53-40d3-8537-e7338210271a",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -19,7 +19,7 @@
         -1600,
         0
       ],
-      "webhookId": "117d4124-f890-45a2-aa1f-162f26f65f60",
+      "webhookId": "75e82d09-7071-4ef6-aaf7-8a74586262b1",
       "credentials": {
         "httpHeaderAuth": {
           "id": "0Ge9oeKKwekA6ZI3",
@@ -29,9 +29,9 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst slug = String(body.slug || '').trim().toLowerCase();\nif (!slug || !/^[a-z0-9-]+$/.test(slug)) erros.push('slug');\nconst nome = String(body.nome || '').trim();\nif (!nome) erros.push('nome');\nconst email = String(body.email || '').trim().toLowerCase();\nif (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) erros.push('email');\nconst moeda = body.moeda || 'BRL';\nconst timezone = body.timezone || 'America/Sao_Paulo';\nconst categoriasDefault = [\n  { nome: 'Vendas', tipo: 'receita' },\n  { nome: 'Servicos', tipo: 'receita' },\n  { nome: 'Fornecedores', tipo: 'despesa' },\n];\nlet categorias = Array.isArray(body.categorias) && body.categorias.length ? body.categorias : categoriasDefault;\ncategorias = categorias.filter(c => c && c.nome && ['receita','despesa'].includes(c.tipo));\nif (categorias.length === 0) erros.push('categorias');\nconst contaInicial = body.conta_inicial || {};\nconst conta = {\n  nome: contaInicial.nome || 'Caixa',\n  tipo: ['caixa','banco','cartao'].includes(contaInicial.tipo) ? contaInicial.tipo : 'caixa',\n  saldo_inicial: Number.isFinite(Number(contaInicial.saldo_inicial)) ? Number(contaInicial.saldo_inicial) : 0,\n};\nfunction gerarToken() {\n  try {\n    const { randomBytes } = require('crypto');\n    return 'fin_' + randomBytes(16).toString('hex');\n  } catch (e) {\n    let s = '';\n    for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);\n    return 'fin_' + s;\n  }\n}\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, slug, nome, email, moeda, timezone, categorias, conta_inicial: conta, access_token: gerarToken() } }];"
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst slug = String(body.slug || '').trim().toLowerCase();\nif (!slug || !/^[a-z0-9-]+$/.test(slug)) erros.push('slug');\nconst nome = String(body.nome || '').trim();\nif (!nome) erros.push('nome');\nconst email = String(body.email || '').trim().toLowerCase();\nif (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) erros.push('email');\nconst moeda = body.moeda || 'BRL';\nconst timezone = body.timezone || 'America/Sao_Paulo';\nconst categoriasDefault = [\n  { nome: 'Vendas', tipo: 'receita' },\n  { nome: 'Servicos', tipo: 'receita' },\n  { nome: 'Fornecedores', tipo: 'despesa' },\n];\nlet categorias = Array.isArray(body.categorias) && body.categorias.length ? body.categorias : categoriasDefault;\ncategorias = categorias.filter(c => c && c.nome && ['receita','despesa'].includes(c.tipo));\nif (categorias.length === 0) erros.push('categorias');\nconst contaInicial = body.conta_inicial || {};\nconst conta = {\n  nome: contaInicial.nome || 'Caixa',\n  tipo: ['caixa','banco','cartao'].includes(contaInicial.tipo) ? contaInicial.tipo : 'caixa',\n  saldo_inicial: Number.isFinite(Number(contaInicial.saldo_inicial)) ? Number(contaInicial.saldo_inicial) : 0,\n};\nfunction gerarToken() {\n  try {\n    const { randomBytes } = require('crypto');\n    return 'fin_' + randomBytes(16).toString('hex');\n  } catch (e) {\n    let s = '';\n    for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);\n    return 'fin_' + s;\n  }\n}\nconst matrizSlug = body.matriz_slug ? String(body.matriz_slug).trim().toLowerCase() : null;\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, slug, nome, email, moeda, timezone, categorias, conta_inicial: conta, access_token: gerarToken(), matriz_slug: matrizSlug } }];"
       },
-      "id": "0fb25f7f-8206-4591-a2a4-ec4b212e7a73",
+      "id": "7af26b14-0adc-4842-b62f-3556d2226399",
       "name": "Validar Dados",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -64,7 +64,7 @@
         },
         "options": {}
       },
-      "id": "5d2a4ec3-2385-4924-b3b3-e9dcbe239e41",
+      "id": "29157f1d-2ba4-4836-9ce9-535c24b6f27f",
       "name": "Dados Validos?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -89,7 +89,7 @@
           "responseCode": 400
         }
       },
-      "id": "551c7fe3-e1d6-4e13-a752-a86acf2b6316",
+      "id": "0816ff31-b745-40b0-a956-3351bba47418",
       "name": "Responder Invalido",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -114,7 +114,7 @@
           ]
         }
       },
-      "id": "519224da-1f75-4fce-bcdc-74dc5e3d9755",
+      "id": "ece4c8e4-1f95-4c7a-abd1-bc4f41a627bd",
       "name": "Verificar Slug (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -134,7 +134,7 @@
       "parameters": {
         "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { disponivel: rows.length === 0 } }];"
       },
-      "id": "24d35e66-dbf7-476f-bdaf-a0fa7059af2a",
+      "id": "e438e1e6-cd18-43db-83d7-e8ece82cfab4",
       "name": "Checar Slug",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -167,7 +167,7 @@
         },
         "options": {}
       },
-      "id": "ee0dca12-c785-4d8a-a2dd-47dbc41eb46f",
+      "id": "12acbb6b-f360-40f2-8a37-10b350562755",
       "name": "Slug Disponivel?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -192,13 +192,180 @@
           "responseCode": 409
         }
       },
-      "id": "6752731e-472e-4c92-a622-700c5f2ea43f",
+      "id": "fdd40e06-2b78-4005-be07-d56c2512285c",
       "name": "Responder Slug Em Uso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
         -400,
         250
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$('Validar Dados').first().json.matriz_slug }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "814b57f9-8456-4be7-aa33-e839ae88e811",
+      "name": "Tem Matriz?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { matriz_id: null } }];"
+      },
+      "id": "b6e59f0e-6b18-4ca0-9a5a-5844393c5be4",
+      "name": "Matriz Nao Informada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "empresas",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "slug",
+              "condition": "eq",
+              "keyValue": "={{ $('Validar Dados').first().json.matriz_slug }}"
+            },
+            {
+              "keyName": "ativo",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "id": "402f4b93-6c8b-4ee7-8f0f-5c293ff97abc",
+      "name": "Verificar Matriz (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { valida: false } }];\nconst matriz = rows[0];\nif (matriz.matriz_id !== null) return [{ json: { valida: false } }];\nreturn [{ json: { valida: true, matriz_id: matriz.id } }];"
+      },
+      "id": "b979b9fc-de81-4816-9985-72ade0af7da9",
+      "name": "Checar Matriz",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.valida }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1afc97a-5346-4088-a4da-c9b20c182467",
+      "name": "Matriz Valida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"matriz_slug nao encontrada, inativa, ou ela mesma e uma filial (so 2 niveis).\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 400
+        }
+      },
+      "id": "07e277c4-27a3-49ac-90a5-dc136ff6611f",
+      "name": "Responder Matriz Invalida",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { matriz_id: $json.matriz_id } }];"
+      },
+      "id": "7470355c-3f49-4dbb-ac82-3de6655e13f1",
+      "name": "Matriz Resolvida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -450,
+        -160
       ]
     },
     {
@@ -229,11 +396,15 @@
             {
               "fieldId": "moeda",
               "fieldValue": "={{ $('Validar Dados').first().json.moeda }}"
+            },
+            {
+              "fieldId": "matriz_id",
+              "fieldValue": "={{ $('Matriz Resolvida').first().json.matriz_id }}"
             }
           ]
         }
       },
-      "id": "83dc9756-00a4-4b67-b10a-78e31140fddb",
+      "id": "1a22bec7-1530-4c3d-970f-58e70340325d",
       "name": "Criar Empresa (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -252,7 +423,7 @@
       "parameters": {
         "jsCode": "const cats = $('Validar Dados').first().json.categorias;\nconst empresaId = $('Criar Empresa (Supabase)').first().json.id;\nreturn cats.map(c => ({ json: { empresa_id: empresaId, nome: c.nome, tipo: c.tipo } }));"
       },
-      "id": "b7d6c751-86d1-4ac8-b7a4-6d54bdb8261e",
+      "id": "8f702263-6b35-44de-929b-f42058a6e704",
       "name": "Preparar Categorias",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -281,7 +452,7 @@
           ]
         }
       },
-      "id": "453b950c-1f99-4685-817c-1f857548f727",
+      "id": "8957c2e4-2965-4791-88ab-81c7316265d4",
       "name": "Criar Categorias (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -320,7 +491,7 @@
           ]
         }
       },
-      "id": "d1befc99-90d2-4189-b955-1dfc102d9a2c",
+      "id": "a6957816-fc8e-4b85-8386-4b6360580798",
       "name": "Criar Conta Inicial (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -337,9 +508,9 @@
     },
     {
       "parameters": {
-        "jsCode": "const empresa = $('Criar Empresa (Supabase)').first().json;\nconst conta = $json;\nconst categorias = $('Validar Dados').first().json.categorias;\nreturn [{ json: {\n  sucesso: true,\n  empresa: { id: empresa.id, slug: empresa.slug, nome: empresa.nome, email: empresa.email, moeda: empresa.moeda, timezone: empresa.timezone, access_token: empresa.access_token },\n  conta_inicial: conta,\n  categorias_criadas: categorias.length\n} }];"
+        "jsCode": "const empresa = $('Criar Empresa (Supabase)').first().json;\nconst conta = $json;\nconst categorias = $('Validar Dados').first().json.categorias;\nreturn [{ json: {\n  sucesso: true,\n  empresa: { id: empresa.id, slug: empresa.slug, nome: empresa.nome, email: empresa.email, moeda: empresa.moeda, timezone: empresa.timezone, access_token: empresa.access_token, matriz_id: empresa.matriz_id },\n  conta_inicial: conta,\n  categorias_criadas: categorias.length\n} }];"
       },
-      "id": "23294275-6b72-4f83-bb5d-02ce58cea81c",
+      "id": "943b5974-9971-4828-a0cf-06f9f17213c9",
       "name": "Montar Resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -359,7 +530,7 @@
         "jsonBody": "={{ { \"from\": \"app_financeiro <financeiro@engenhariadedadosn8n.shop>\", \"to\": [$json.empresa.email], \"subject\": \"Bem-vindo(a) ao app_financeiro, \" + $json.empresa.nome + \"!\", \"html\": \"<p>Ol\\u00e1! O painel financeiro da <strong>\" + $json.empresa.nome + \"</strong> j\\u00e1 est\\u00e1 pronto.</p>\" + \"<p><a href='https://financeiro.engenhariadedadosn8n.shop/?token=\" + $json.empresa.access_token + \"'>Clique aqui para acessar</a> \\u2014 o acesso fica salvo no seu navegador, n\\u00e3o precisa digitar o c\\u00f3digo de novo depois.</p>\" + \"<p>Se o link n\\u00e3o funcionar, acesse <a href='https://financeiro.engenhariadedadosn8n.shop'>https://financeiro.engenhariadedadosn8n.shop</a> e informe este c\\u00f3digo de acesso:</p>\" + \"<p><code>\" + $json.empresa.access_token + \"</code></p>\" } }}",
         "options": {}
       },
-      "id": "e130f69e-9411-4b19-a6c0-904f5b4bda98",
+      "id": "3ab61981-d2fb-4258-9fc0-186be38d543d",
       "name": "Enviar Email Boas Vindas",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -379,7 +550,7 @@
       "parameters": {
         "jsCode": "const resp = $('Montar Resposta').first().json;\nconst emailResult = $json;\nconst emailEnviado = !emailResult.error;\nreturn [{ json: { ...resp, email_enviado: emailEnviado, email_erro: emailEnviado ? undefined : (emailResult.error?.message || emailResult.message || 'falha ao enviar') } }];"
       },
-      "id": "6fd78981-f22f-4b14-adb3-423abaf114c0",
+      "id": "d7f8a38f-be7a-4106-9a26-c6d49928ed69",
       "name": "Registrar Envio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -404,7 +575,7 @@
           "responseCode": 201
         }
       },
-      "id": "9f255325-f52a-4ad3-903a-a52f390718b6",
+      "id": "15c94829-79bf-448b-8576-5e268ce2b03e",
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -481,7 +652,7 @@
       "main": [
         [
           {
-            "node": "Criar Empresa (Supabase)",
+            "node": "Tem Matriz?",
             "type": "main",
             "index": 0
           }
@@ -489,6 +660,86 @@
         [
           {
             "node": "Responder Slug Em Uso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Matriz?": {
+      "main": [
+        [
+          {
+            "node": "Verificar Matriz (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Matriz Nao Informada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matriz Nao Informada": {
+      "main": [
+        [
+          {
+            "node": "Matriz Resolvida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Matriz (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Checar Matriz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Matriz": {
+      "main": [
+        [
+          {
+            "node": "Matriz Valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matriz Valida?": {
+      "main": [
+        [
+          {
+            "node": "Matriz Resolvida",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Matriz Invalida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matriz Resolvida": {
+      "main": [
+        [
+          {
+            "node": "Criar Empresa (Supabase)",
             "type": "main",
             "index": 0
           }
