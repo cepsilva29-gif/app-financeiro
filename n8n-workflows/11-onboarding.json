@@ -11,7 +11,7 @@
           "allowedOrigins": "*"
         }
       },
-      "id": "70a2801c-fc48-41d4-88fb-826be243988e",
+      "id": "8942514c-52bd-42c8-861a-d7bc3ecf5529",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -19,7 +19,7 @@
         -1600,
         0
       ],
-      "webhookId": "bd5e0b5f-8570-4e2e-8f80-4ad96402cbc1",
+      "webhookId": "117d4124-f890-45a2-aa1f-162f26f65f60",
       "credentials": {
         "httpHeaderAuth": {
           "id": "0Ge9oeKKwekA6ZI3",
@@ -29,9 +29,9 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst slug = String(body.slug || '').trim().toLowerCase();\nif (!slug || !/^[a-z0-9-]+$/.test(slug)) erros.push('slug');\nconst nome = String(body.nome || '').trim();\nif (!nome) erros.push('nome');\nconst moeda = body.moeda || 'BRL';\nconst timezone = body.timezone || 'America/Sao_Paulo';\nconst categoriasDefault = [\n  { nome: 'Vendas', tipo: 'receita' },\n  { nome: 'Servicos', tipo: 'receita' },\n  { nome: 'Fornecedores', tipo: 'despesa' },\n];\nlet categorias = Array.isArray(body.categorias) && body.categorias.length ? body.categorias : categoriasDefault;\ncategorias = categorias.filter(c => c && c.nome && ['receita','despesa'].includes(c.tipo));\nif (categorias.length === 0) erros.push('categorias');\nconst contaInicial = body.conta_inicial || {};\nconst conta = {\n  nome: contaInicial.nome || 'Caixa',\n  tipo: ['caixa','banco','cartao'].includes(contaInicial.tipo) ? contaInicial.tipo : 'caixa',\n  saldo_inicial: Number.isFinite(Number(contaInicial.saldo_inicial)) ? Number(contaInicial.saldo_inicial) : 0,\n};\nfunction gerarToken() {\n  try {\n    const { randomBytes } = require('crypto');\n    return 'fin_' + randomBytes(16).toString('hex');\n  } catch (e) {\n    let s = '';\n    for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);\n    return 'fin_' + s;\n  }\n}\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, slug, nome, moeda, timezone, categorias, conta_inicial: conta, access_token: gerarToken() } }];"
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst slug = String(body.slug || '').trim().toLowerCase();\nif (!slug || !/^[a-z0-9-]+$/.test(slug)) erros.push('slug');\nconst nome = String(body.nome || '').trim();\nif (!nome) erros.push('nome');\nconst email = String(body.email || '').trim().toLowerCase();\nif (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) erros.push('email');\nconst moeda = body.moeda || 'BRL';\nconst timezone = body.timezone || 'America/Sao_Paulo';\nconst categoriasDefault = [\n  { nome: 'Vendas', tipo: 'receita' },\n  { nome: 'Servicos', tipo: 'receita' },\n  { nome: 'Fornecedores', tipo: 'despesa' },\n];\nlet categorias = Array.isArray(body.categorias) && body.categorias.length ? body.categorias : categoriasDefault;\ncategorias = categorias.filter(c => c && c.nome && ['receita','despesa'].includes(c.tipo));\nif (categorias.length === 0) erros.push('categorias');\nconst contaInicial = body.conta_inicial || {};\nconst conta = {\n  nome: contaInicial.nome || 'Caixa',\n  tipo: ['caixa','banco','cartao'].includes(contaInicial.tipo) ? contaInicial.tipo : 'caixa',\n  saldo_inicial: Number.isFinite(Number(contaInicial.saldo_inicial)) ? Number(contaInicial.saldo_inicial) : 0,\n};\nfunction gerarToken() {\n  try {\n    const { randomBytes } = require('crypto');\n    return 'fin_' + randomBytes(16).toString('hex');\n  } catch (e) {\n    let s = '';\n    for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);\n    return 'fin_' + s;\n  }\n}\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, slug, nome, email, moeda, timezone, categorias, conta_inicial: conta, access_token: gerarToken() } }];"
       },
-      "id": "d35611e0-ddb2-48a2-a16f-b5550a3b39a6",
+      "id": "0fb25f7f-8206-4591-a2a4-ec4b212e7a73",
       "name": "Validar Dados",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -64,7 +64,7 @@
         },
         "options": {}
       },
-      "id": "e141e316-0076-4371-8dd3-18765b34787b",
+      "id": "5d2a4ec3-2385-4924-b3b3-e9dcbe239e41",
       "name": "Dados Validos?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -89,7 +89,7 @@
           "responseCode": 400
         }
       },
-      "id": "d3b6c5de-ed43-4063-96f4-89ee976ac331",
+      "id": "551c7fe3-e1d6-4e13-a752-a86acf2b6316",
       "name": "Responder Invalido",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -114,7 +114,7 @@
           ]
         }
       },
-      "id": "c0e50ed5-1c10-477d-97dc-3ab1b5d85981",
+      "id": "519224da-1f75-4fce-bcdc-74dc5e3d9755",
       "name": "Verificar Slug (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -134,7 +134,7 @@
       "parameters": {
         "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { disponivel: rows.length === 0 } }];"
       },
-      "id": "41cbc9f2-5cc7-47b6-b240-0ffe77b72670",
+      "id": "24d35e66-dbf7-476f-bdaf-a0fa7059af2a",
       "name": "Checar Slug",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -167,7 +167,7 @@
         },
         "options": {}
       },
-      "id": "3399f7f2-a3d4-4846-ba27-1050bd8a8af4",
+      "id": "ee0dca12-c785-4d8a-a2dd-47dbc41eb46f",
       "name": "Slug Disponivel?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -192,7 +192,7 @@
           "responseCode": 409
         }
       },
-      "id": "8c0014ae-75ca-4f06-871e-61b5695ef913",
+      "id": "6752731e-472e-4c92-a622-700c5f2ea43f",
       "name": "Responder Slug Em Uso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -219,6 +219,10 @@
               "fieldValue": "={{ $('Validar Dados').first().json.nome }}"
             },
             {
+              "fieldId": "email",
+              "fieldValue": "={{ $('Validar Dados').first().json.email }}"
+            },
+            {
               "fieldId": "timezone",
               "fieldValue": "={{ $('Validar Dados').first().json.timezone }}"
             },
@@ -229,7 +233,7 @@
           ]
         }
       },
-      "id": "b04b5a5d-472c-4939-b5aa-4490a27953f1",
+      "id": "83dc9756-00a4-4b67-b10a-78e31140fddb",
       "name": "Criar Empresa (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -248,7 +252,7 @@
       "parameters": {
         "jsCode": "const cats = $('Validar Dados').first().json.categorias;\nconst empresaId = $('Criar Empresa (Supabase)').first().json.id;\nreturn cats.map(c => ({ json: { empresa_id: empresaId, nome: c.nome, tipo: c.tipo } }));"
       },
-      "id": "338dfef1-1b0c-473b-ba50-d5e550a3b246",
+      "id": "b7d6c751-86d1-4ac8-b7a4-6d54bdb8261e",
       "name": "Preparar Categorias",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -277,7 +281,7 @@
           ]
         }
       },
-      "id": "db6899c3-7b78-4612-bb88-b45f543878f6",
+      "id": "453b950c-1f99-4685-817c-1f857548f727",
       "name": "Criar Categorias (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -316,7 +320,7 @@
           ]
         }
       },
-      "id": "71c07172-dfe0-4cf5-85f7-0882f0007066",
+      "id": "d1befc99-90d2-4189-b955-1dfc102d9a2c",
       "name": "Criar Conta Inicial (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -333,14 +337,54 @@
     },
     {
       "parameters": {
-        "jsCode": "const empresa = $('Criar Empresa (Supabase)').first().json;\nconst conta = $json;\nconst categorias = $('Validar Dados').first().json.categorias;\nreturn [{ json: {\n  sucesso: true,\n  empresa: { id: empresa.id, slug: empresa.slug, nome: empresa.nome, moeda: empresa.moeda, timezone: empresa.timezone, access_token: empresa.access_token },\n  conta_inicial: conta,\n  categorias_criadas: categorias.length\n} }];"
+        "jsCode": "const empresa = $('Criar Empresa (Supabase)').first().json;\nconst conta = $json;\nconst categorias = $('Validar Dados').first().json.categorias;\nreturn [{ json: {\n  sucesso: true,\n  empresa: { id: empresa.id, slug: empresa.slug, nome: empresa.nome, email: empresa.email, moeda: empresa.moeda, timezone: empresa.timezone, access_token: empresa.access_token },\n  conta_inicial: conta,\n  categorias_criadas: categorias.length\n} }];"
       },
-      "id": "43fc3339-d24c-4d5f-b1ef-cf1c434b8782",
+      "id": "23294275-6b72-4f83-bb5d-02ce58cea81c",
       "name": "Montar Resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         0,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"from\": \"app_financeiro <financeiro@engenhariadedadosn8n.shop>\", \"to\": [$json.empresa.email], \"subject\": \"Bem-vindo(a) ao app_financeiro, \" + $json.empresa.nome + \"!\", \"html\": \"<p>Ol\\u00e1! O painel financeiro da <strong>\" + $json.empresa.nome + \"</strong> j\\u00e1 est\\u00e1 pronto.</p>\" + \"<p><a href='https://financeiro.engenhariadedadosn8n.shop/?token=\" + $json.empresa.access_token + \"'>Clique aqui para acessar</a> \\u2014 o acesso fica salvo no seu navegador, n\\u00e3o precisa digitar o c\\u00f3digo de novo depois.</p>\" + \"<p>Se o link n\\u00e3o funcionar, acesse <a href='https://financeiro.engenhariadedadosn8n.shop'>https://financeiro.engenhariadedadosn8n.shop</a> e informe este c\\u00f3digo de acesso:</p>\" + \"<p><code>\" + $json.empresa.access_token + \"</code></p>\" } }}",
+        "options": {}
+      },
+      "id": "e130f69e-9411-4b19-a6c0-904f5b4bda98",
+      "name": "Enviar Email Boas Vindas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        -80
+      ],
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1wGIJB3O2aPKsiOi",
+          "name": "Resend - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $('Montar Resposta').first().json;\nconst emailResult = $json;\nconst emailEnviado = !emailResult.error;\nreturn [{ json: { ...resp, email_enviado: emailEnviado, email_erro: emailEnviado ? undefined : (emailResult.error?.message || emailResult.message || 'falha ao enviar') } }];"
+      },
+      "id": "6fd78981-f22f-4b14-adb3-423abaf114c0",
+      "name": "Registrar Envio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
         -80
       ]
     },
@@ -360,12 +404,12 @@
           "responseCode": 201
         }
       },
-      "id": "73f4a9e1-5b59-4bbe-ab94-874da22a128c",
+      "id": "9f255325-f52a-4ad3-903a-a52f390718b6",
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        200,
+        600,
         -80
       ]
     }
@@ -490,6 +534,28 @@
       ]
     },
     "Montar Resposta": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Boas Vindas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Boas Vindas": {
+      "main": [
+        [
+          {
+            "node": "Registrar Envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Envio": {
       "main": [
         [
           {

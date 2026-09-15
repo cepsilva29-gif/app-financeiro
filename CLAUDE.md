@@ -42,10 +42,13 @@ owner. Keep new docs and UI copy in Portuguese too.
 - **Fase 4 — done.** Token-per-empresa auth (`empresas.access_token`), chosen over Supabase Auth
   because nothing in this project implies multiple individually-logged-in users per empresa — see
   "Auth" below for the tradeoff and how it's wired.
-- **Fase 5 — done.** `POST /webhook/financeiro/onboarding` (admin-only, see below) creates an
-  empresa + default categorias + an initial conta in one call. Verified live: created a real
-  second empresa (`demo2`) this way with zero manual database edits — the plan's own Fase 5
-  acceptance test — and confirmed rejection of a duplicate slug and of invalid input.
+- **Fase 5 — done, later extended.** `POST /webhook/financeiro/onboarding` (admin-only, see below)
+  creates an empresa + default categorias + an initial conta in one call. Verified live: created a
+  real second empresa (`demo2`) this way with zero manual database edits — the plan's own Fase 5
+  acceptance test — and confirmed rejection of a duplicate slug and of invalid input. **Extended
+  post-launch** (2026-09-15) to also send a welcome email with the ready-to-click access link via
+  Resend — see "Onboarding email (Resend)" below; `empresas.email` is now a required onboarding
+  field.
 - **Fase 6 (extensões pós-v1) — deliberately out of scope**, see below.
 - **Frontend deployed to production** (2026-09-15) — see "Deployment" below.
 
@@ -79,7 +82,8 @@ owner. Keep new docs and UI copy in Portuguese too.
 ### Data model (`supabase/schema.sql`)
 
 Four tables: `empresas` (tenant registry: slug, **access_token** — the sole auth credential, see
-Fase 4 — nome, timezone, moeda), `categorias`
+Fase 4 — nome, **email** — nullable, only required going through `11-onboarding`; older rows like
+`demo2` predate this column and have it null — timezone, moeda), `categorias`
 (receita/despesa, scoped-unique per empresa via `unique(empresa_id, nome, tipo)`), `contas`
 (caixa/banco/cartão, with saldo_inicial), `transacoes` (the ledger: tipo, valor, data, status
 previsto/confirmado, origem manual/importado, FKs to conta+categoria). Two composite indexes on
@@ -143,9 +147,10 @@ Only `previsto` vs `confirmado` status exists; `resumo-periodo` and account bala
   `onboarding_admin_token:`, never in this repo's workflow JSON — same "credential, not env var,
   not hardcoded" pattern as the Supabase key). **Never confuse this admin token with an empresa's
   `access_token`** — the admin token can create empresas; an empresa token can only touch its own
-  data. Body: `{slug, nome, moeda?, timezone?, categorias?: [{nome,tipo}], conta_inicial?: {nome,
-  tipo, saldo_inicial}}` — `categorias`/`conta_inicial` default to the same starter set `demo` has
-  in `schema.sql` if omitted. Generates the new empresa's `access_token` itself (`'fin_' +
+  data. Body: `{slug, nome, email, moeda?, timezone?, categorias?: [{nome,tipo}], conta_inicial?:
+  {nome, tipo, saldo_inicial}}` — `email` is **required** (see "Onboarding email" below for why);
+  `categorias`/`conta_inicial` default to the same starter set `demo` has in `schema.sql` if
+  omitted. Generates the new empresa's `access_token` itself (`'fin_' +
   randomBytes(16).toString('hex')`, with a `Math.random()` fallback in case `require('crypto')`
   ever gets sandboxed in this Code node — confirmed `require('crypto')` works today, but the
   fallback costs nothing to keep). Rejects a taken `slug` with 409, invalid input with 400.
@@ -157,6 +162,47 @@ Only `previsto` vs `confirmado` status exists; `resumo-periodo` and account bala
   branch, specifically to avoid depending on ordering between two parallel branches (unlike
   `resumo-periodo`, which does read a sibling branch's output and relies on it having already run
   — that pattern is only safe because it was verified working, not because n8n guarantees it).
+
+### Onboarding email (Resend)
+
+Added post-launch (2026-09-15) so the operator doesn't have to manually copy/paste the new
+empresa's `access_token` to the client. In `11-onboarding`, after `Criar Conta Inicial` →
+`Montar Resposta` (which now also carries `empresa.email`): `Enviar Email Boas Vindas` (HTTP
+Request node, `POST https://api.resend.com/emails`, `authentication: "genericCredentialType"` +
+`genericAuthType: "httpHeaderAuth"` against credential `Resend - app_financeiro`, id
+`1wGIJB3O2aPKsiOi` — header `Authorization: Bearer <sending-only Resend key>`, value never in this
+repo's JSON) → `Registrar Envio` (Code, folds the HTTP result into the response as
+`email_enviado`/`email_erro`) → `Responder Sucesso`.
+
+- **`continueOnFail: true`** on the email node, deliberately — a Resend outage or bad email
+  address must not make empresa creation fail; the empresa, its categorias, and conta are already
+  committed by that point regardless. `Registrar Envio` reads `$json.error` (present when
+  `continueOnFail` catches a non-2xx) to decide `email_enviado`.
+- **Two Resend API keys exist, on purpose, with different scopes**: `resend_api_key_sending` in
+  `.env` (Sending-access only — this is the one wired into the n8n credential above, used for every
+  real send) and `resend_api_key_full` (Full access — used once to add/verify the domain via
+  Resend's API, not referenced by any workflow). Resend enforces this split server-side: a
+  sending-only key gets a hard 401 on `POST /domains` or `POST /api-keys` (confirmed by testing) —
+  don't "simplify" this back down to one key thinking it's redundant.
+- **Sending domain**: `engenhariadedadosn8n.shop`, verified in Resend via DKIM (TXT
+  `resend._domainkey`) + SPF (MX and TXT on `send`) + a `rsend` CNAME, all as Cloudflare DNS
+  records (DNS only, matching the zone's usual pattern). From address hardcoded in the workflow:
+  `app_financeiro <financeiro@engenhariadedadosn8n.shop>` — no real inbox behind that address,
+  it's send-only. Domain verification is **not instant**: Resend's own check lags behind actual
+  DNS propagation by anywhere from minutes to about an hour even after `POST
+  /domains/{id}/verify` — confirmed by testing (DNS was correct and resolving via 1.1.1.1 well
+  before Resend's `status` flipped from `pending` to `verified`). Before that flip, every send
+  fails with a `403`/`"domain not verified"` from Resend — this is expected transient behavior
+  right after first setting up the domain, not a bug to chase.
+- **Email body** is a hardcoded HTML string built in the request's `jsonBody` expression (not a
+  template file) with the empresa's nome and a `{APP_URL}/?token=<access_token>` link plus the
+  raw token as a fallback. `APP_URL` is a constant in `build_onboarding.mjs`
+  (`https://financeiro.engenhariadedadosn8n.shop`) — if the production frontend domain ever
+  changes, this needs updating and the workflow needs re-deploying (create+activate, per the usual
+  pattern — see "Working with this repo").
+- **Known gap**: no retry/resend mechanism if `email_enviado: false` — the operator has to notice
+  the response field and fall back to manually sending the `access_token` that's still in the same
+  response.
 
 ### Frontend (`frontend/index.html`)
 

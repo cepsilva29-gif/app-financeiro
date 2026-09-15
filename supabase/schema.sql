@@ -8,6 +8,7 @@ create table empresas (
   slug         text not null unique,        -- usado na URL/subdominio, ex: 'empresa-da-ana' — display/routing only, NAO e a fronteira de seguranca (ver Fase 4)
   access_token text not null unique,        -- gerado no onboarding; e o unico campo que os workflows usam pra resolver a empresa numa request autenticada
   nome         text not null,
+  email        text,                        -- pra onde o link de acesso e mandado no onboarding (Fase 5+); nullable pq empresas antigas (demo/demo2) nao tinham esse campo
   timezone     text not null default 'America/Sao_Paulo',
   moeda        text not null default 'BRL',
   ativo        boolean not null default true,
@@ -60,8 +61,8 @@ alter table transacoes  enable row level security;
 -- Seed: empresa de teste para desenvolver os workflows contra dados reais.
 -- access_token abaixo e so pra essa empresa demo (sem dado real por tras) — nunca reusar um
 -- token fixo desses pra uma empresa de verdade; gerar aleatorio no onboarding real (Fase 5).
-insert into empresas (slug, access_token, nome, timezone, moeda)
-values ('demo', 'fin_5f31c80a2b2e1fe83d45ff5b0d4690f5adcb46d02d0846f7', 'Empresa Demo', 'America/Sao_Paulo', 'BRL');
+insert into empresas (slug, access_token, nome, email, timezone, moeda)
+values ('demo', 'fin_5f31c80a2b2e1fe83d45ff5b0d4690f5adcb46d02d0846f7', 'Empresa Demo', 'demo@example.com', 'America/Sao_Paulo', 'BRL');
 
 insert into categorias (empresa_id, nome, tipo)
 select id, 'Vendas', 'receita' from empresas where slug = 'demo'

@@ -23,7 +23,9 @@ qualquer outro projeto.
 - **Fase 5 — concluída**: onboarding de empresa nova via `POST /webhook/financeiro/onboarding`
   (protegido por um token de admin separado, não pelo `X-Empresa-Token`) — cria a empresa, o
   `access_token` dela, as categorias padrão e a conta inicial numa chamada só. Testado criando a
-  `demo2` sem editar nada no banco na mão.
+  `demo2` sem editar nada no banco na mão. **Envia email de boas-vindas automaticamente** (via
+  Resend) pro `email` informado no cadastro, com o link de acesso já pronto — não depende de você
+  copiar/colar o token pro cliente manualmente.
 - **Frontend em produção**: https://financeiro.engenhariadedadosn8n.shop/ (domínio próprio, via
   Cloudflare com proxy ligado) — também acessível pelo domínio padrão do Easypanel,
   https://app_financeiro-frontend.y7ycus.easypanel.host/. Build automático a partir deste repo
@@ -55,13 +57,16 @@ onboarding, que usa um token de admin à parte (ver `CLAUDE.md`).
 curl -X POST https://n8n.engenhariadedadosn8n.shop/webhook/financeiro/onboarding \
   -H "X-Admin-Token: <onboarding_admin_token do .env>" \
   -H "Content-Type: application/json" \
-  -d '{"slug": "empresa-nova", "nome": "Empresa Nova Ltda"}'
+  -d '{"slug": "empresa-nova", "nome": "Empresa Nova Ltda", "email": "dono@empresanova.com.br"}'
 ```
 
-Retorna o `access_token` gerado pra essa empresa — é isso que você manda pro cliente (por exemplo,
-como `.../frontend/?token=<access_token>`). `categorias` e `conta_inicial` são opcionais no body;
-sem eles, usa o mesmo conjunto padrão da `demo` (Vendas/Serviços/receita, Fornecedores/despesa,
-conta "Caixa").
+`email` é obrigatório — é pra onde o link de acesso é mandado automaticamente (via Resend), assim
+que a empresa é criada. `categorias` e `conta_inicial` continuam opcionais; sem eles, usa o mesmo
+conjunto padrão da `demo` (Vendas/Serviços/receita, Fornecedores/despesa, conta "Caixa").
+
+A resposta traz `email_enviado: true/false` — se `false`, vem `email_erro` com o motivo (ex:
+domínio do Resend não verificado, endereço inválido). A empresa é criada **mesmo se o email
+falhar** — o `access_token` sempre volta na resposta como plano B, pra você mandar manualmente.
 
 ## Documentação
 
@@ -113,10 +118,13 @@ cabeçalho limpa e pede de novo.
   `autoDeploy: true` está setado, mas isso não confirma que o Easypanel realmente reconstrói a
   cada push (ver nota de `autoDeploy` não confiável no `CLAUDE.md` do `App_Agendamento`) — depois
   de um `git push`, confirmar/disparar o rebuild.
-- **Domínio**: `financeiro.engenhariadedadosn8n.shop` (registro A na Cloudflare, criado com o proxy
-  **ligado** — nuvem laranja, diferente dos demais subdomínios desse domínio que estão todos como
-  "DNS only") apontando pro mesmo serviço no Easypanel. Também acessível pelo domínio padrão do
-  Easypanel (`app_financeiro-frontend.y7ycus.easypanel.host`).
+- **Domínio**: `financeiro.engenhariadedadosn8n.shop` (registro A na Cloudflare, DNS only — mesmo
+  padrão dos outros subdomínios) apontando pro mesmo serviço no Easypanel. Certificado HTTPS real
+  (Let's Encrypt, emitido pelo Traefik). Também acessível pelo domínio padrão do Easypanel
+  (`app_financeiro-frontend.y7ycus.easypanel.host`).
+- **Email de onboarding**: domínio `engenhariadedadosn8n.shop` verificado no Resend (DKIM + SPF +
+  MX, registros na Cloudflare) — necessário pra mandar email a partir de
+  `financeiro@engenhariadedadosn8n.shop`. Ver seção "Cadastrando uma empresa nova" abaixo.
 
 ## Configuração local
 
