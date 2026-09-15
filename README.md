@@ -39,10 +39,15 @@ qualquer outro projeto.
 - **Matriz vendo filiais**: uma empresa pode ser cadastrada como filial de outra
   (`empresas.matriz_id`). O token da matriz continua sendo um token só, mas pode agir em nome de
   qualquer filial dela passando `empresa_id` na requisição — o backend verifica a permissão a
-  cada chamada. No frontend, aparece um seletor no cabeçalho pra trocar entre a própria empresa e
-  as filiais, sem precisar logar de novo. Só 2 níveis (uma filial não pode ter filiais). Testado:
-  matriz criando/vendo dados de uma filial, filial vendo os próprios dados normalmente, e todo
-  acesso cruzado não autorizado (empresa não relacionada, filial tentando acessar a matriz)
+  cada chamada. Só 2 níveis (uma filial não pode ter filiais). No frontend, aparece um painel de
+  checkboxes no cabeçalho pra marcar a própria empresa e/ou qualquer combinação de filiais, sem
+  precisar logar de novo. **Marcando 2 ou mais**, a tela vira uma visão somada: lançamentos e
+  totais do Resumo combinados de todas as empresas marcadas (cada linha mostra de qual empresa é),
+  e o formulário de "novo lançamento"/cadastro de categoria/conta fica desabilitado nesse modo (pra
+  não ficar ambíguo em qual empresa cairia). Testado: matriz criando/vendo dados de uma filial,
+  filial vendo os próprios dados normalmente, visão somada de 3 empresas com totais batendo
+  certo, e todo acesso cruzado não autorizado (empresa não relacionada, filial tentando acessar a
+  matriz)
   rejeitado com 403.
 
 ## Endpoints (n8n)

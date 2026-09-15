@@ -64,6 +64,11 @@ owner. Keep new docs and UI copy in Portuguese too.
   IF-branch in the new logic that made *every* request take the "verify a different empresa"
   path, including ones with no override at all) — see that section for what to watch for if this
   logic is ever touched again.
+- **Multi-select combined view** (2026-09-15, same day, extending the matriz switcher above right
+  after it shipped) — the header selector became a checkbox panel; selecting 2+ empresas shows
+  lançamentos and Resumo **summed across all of them** instead of switching one at a time, with
+  creation forms disabled in that mode. Frontend-only change (no new backend workflow) — see
+  "Matriz multi-select switcher" under Frontend below.
 
 ## Architecture
 
@@ -350,29 +355,67 @@ All API calls go through one `api(path, {method, query, body})` helper in the `C
 `https://n8n.engenhariadedadosn8n.shop/webhook/financeiro` namespace, which attaches the stored
 token as the `X-Empresa-Token` header on every call automatically — no call site needs to remember
 auth, and none of them send `slug` anywhere (there's nothing left in this project that reads it).
-`api()` also attaches `empresa_id: state.empresaAtivaId` (query for GET, body for POST) to
-**every** call whenever that state field is set — including when it equals the token's own
-empresa, which the backend treats as a harmless no-op, so the frontend never needs conditional
-logic here.
+`api()` accepts an `empresaId` option that, when passed, overrides `state.empresaAtivaId` for
+*that one call only* — attached as `empresa_id` (query for GET, body for POST). Without it, falls
+back to `state.empresaAtivaId`. This explicit-override-beats-shared-state design is deliberate:
+see the "no shared-mutable-state race" note below.
 
-**Matriz switcher**: `state.empresaHome` (`{id, nome}`, captured once from the *first*
-`empresa-info` call of the session — before any override, so it's always the token's own identity,
-never a filial's) vs. `state.empresa` (whichever empresa is currently being *viewed*, refreshed on
-every switch) vs. `state.empresaAtivaId` (drives the `api()` override above). A
-`#seletorEmpresa` `<select>` in the header is hidden unless `state.empresa.filiais.length > 0`;
-its options are `state.empresaHome` labeled "(própria)" plus each filial. Choosing one:
-sets `state.empresaAtivaId`, persists it to `localStorage` (`financeiro_empresa_ativa_id` — a UI
-convenience, not a credential; safe to lose), re-fetches `empresa-info` (now carrying the override,
-so `state.empresa` becomes the filial's own data — nome/slug/moeda all update in the header) and
-reloads categorias/contas/transacoes for the newly active empresa. `carregarEmpresa()` on boot
-validates the persisted choice is still legitimate (equals home's id, or appears in the fresh
-`filiais` list) before trusting it — handles both "filial was unlinked since last visit" and "a
-completely different token logged in in this same browser, so the old saved id means nothing"
-(confirmed by testing: logging in directly as the filial, with a stale matriz-scoped id still in
-`localStorage` from a prior session, correctly ignores it and resolves to the filial's own empresa
-— the validation checks against *this* token's actual home+filiais, not just "is it a valid id
-somewhere"). `clearToken()` (called on logout) also clears this key, so a fresh login never
-inherits a stale selection from a different company's session.
+**Matriz multi-select switcher** (extended 2026-09-15 from an earlier single-select version — the
+user explicitly asked to view several empresas' data *combined*, not just switch one at a time).
+State: `state.empresaHome` (`{id, nome}`, captured once from the token's own identity, never
+changes), `state.empresasDisponiveis` (`[{id, nome}]` = home + every filial, constant per
+session), `state.empresasSelecionadasIds` (array, **always ≥ 1** — enforced in the checkbox
+handler, which silently re-checks a box if unchecking it would leave zero selected), and
+`state.empresaAtivaId` (only meaningful — and only set — when exactly one id is selected; `null`
+whenever 2+ are, which is what forces every multi-fetch loop to pass `empresaId` explicitly rather
+than accidentally relying on stale shared state).
+
+- **UI**: `#botaoSeletorEmpresa` (hidden unless `empresasDisponiveis.length > 1`) toggles
+  `#painelSeletorEmpresa`, a checkbox list (one per available empresa, "(própria)" suffix on
+  home). A document-level click listener closes the panel on any click outside it —
+  **when testing this by driving the page programmatically, close the panel (click elsewhere)
+  before clicking anything else in the header/nav**, since the open panel visually overlaps that
+  area and a coordinate-based click can land on a checkbox instead of, say, the "Resumo" tab
+  (this happened during testing — not a bug, just a reason to prefer `find`/ref-based clicks or an
+  explicit close-panel step over blind coordinates here).
+- **Single selected (the common case, and the only case for any empresa with no filiais)**:
+  behavior is unchanged from before this feature existed — `state.empresaAtivaId` is set, one
+  `empresa-info` call populates `state.empresa` and the header (nome/slug), and
+  `[data-form-empresa-unica]`-marked elements (the lançamento form, and the categoria/conta
+  creation forms — see below) are visible.
+- **2+ selected → combined view, read-only**: `state.empresaAtivaId` is set to `null`;
+  `#avisoMultiEmpresa` ("visualização somada... selecione só uma pra adicionar") and
+  `#colEmpresaHeader` (an extra "Empresa" column in the lançamentos table) become visible; every
+  `[data-form-empresa-unica]` element (lançamento form + both cadastro forms in Categorias &
+  Contas) is hidden — creating a new row while 2+ empresas are selected is deliberately not
+  supported, since which empresa it would belong to is ambiguous. `carregarCategorias()`,
+  `carregarContas()`, and `carregarTransacoes()` each loop over `empresasSelecionadasIds`, calling
+  `api(path, { empresaId: id })` once per id and concatenating the results (tagging each
+  transação with `_empresaId` for the "Empresa" column and for `excluir-transacao`, which needs to
+  know which empresa a given row belongs to once `state.empresaAtivaId` is no longer reliable).
+  `carregarResumo()` does the same per-empresa loop and **sums** `totais` client-side, prefixes
+  each `saldo_por_conta`/`por_categoria` row with the empresa's nome (own + filiais share one flat
+  `contas`/`categorias` id space — Postgres `identity` columns are global per table, not
+  per-empresa, so no id collisions are possible when merging — but nomes like "Caixa" or "Vendas"
+  very plausibly repeat across companies, hence the prefix). **Assumes every selected empresa
+  shares one moeda** (defaults display to BRL in this mode) — there's no UI or backend support for
+  mixing currencies in one combined total; not a concern today since nothing in this project
+  actually varies `moeda` per empresa yet, but would need real handling if that ever changes.
+- **No shared-mutable-state race**: the multi-fetch loops inside `carregarCategorias()` /
+  `carregarContas()` / `carregarTransacoes()` / `carregarResumo()` run under `Promise.all` (or
+  sequential `await` in a loop) — if `empresaId` were threaded through a shared field like the old
+  single-select `state.empresaAtivaId` instead of passed as an explicit `api()` option, concurrent
+  calls could read each other's in-flight mutation and attach the wrong empresa_id to a request.
+  This is *why* `api()` grew the explicit `empresaId` parameter during this change rather than
+  reusing the existing shared-state mechanism for multi-select too.
+- **Persistence**: `localStorage` key `financeiro_empresa_ativa_id` now stores a JSON array of
+  ids (was a single number before this change — `getEmpresasSelecionadasSalvas()` tolerates a lone
+  number for backward compatibility, treating it as a 1-element array). `carregarEmpresa()` on
+  boot filters the saved array down to ids that are still in the fresh `empresasDisponiveis` list
+  (handles a filial being unlinked since last visit, *and* a completely different token logging in
+  on the same browser leaving behind a saved selection that means nothing to it — confirmed by
+  testing both). If filtering leaves zero valid ids, falls back to `[home.id]`. `clearToken()`
+  (logout) also clears this key.
 
 Client-side joins: `state.categorias`/`state.contas` are loaded once on boot and looked up by id
 (`nomeCategoria()`/`nomeConta()`) to render names in the lançamentos table and resumo — the backend
@@ -402,14 +445,24 @@ Also verified after adding public signup: nome→slug auto-fill, duplicate-slug 
 panel toggling both directions, and the full loop (signup → real email received → link → logged
 into the freshly-created empresa with its default categorias/conta present).
 
-Also verified after adding the matriz switcher, with a real created-then-deleted matriz+filial
-pair: switcher hidden for an empresa with no filiais (`demo`); visible and correctly populated for
-a matriz; switching to a filial updates nome/slug/categorias/contas/transacoes all at once and a
-lançamento created there lands on the filial (confirmed via the filial's *own* token separately);
-switching back to "(própria)" shows zero lançamentos, i.e. the filial's data doesn't leak into the
-matriz's view; the choice persists across a page reload; logging in directly with the filial's own
-token (fresh page load, no switcher shown since it has no filiais of its own) correctly ignores a
-stale matriz-scoped `localStorage` value left over from the previous session in the same browser.
+Also verified after adding the matriz switcher (single-select version, since superseded): switcher
+hidden for an empresa with no filiais (`demo`); visible and correctly populated for a matriz;
+switching to a filial updates nome/slug/categorias/contas/transacoes all at once and a lançamento
+created there lands on the filial (confirmed via the filial's *own* token separately); switching
+back shows zero lançamentos (no leak); choice persists across reload; a filial's own token ignores
+a stale matriz-scoped `localStorage` value from a prior session.
+
+Also verified after extending to multi-select (real matriz + 2 filiais, each seeded with one
+transação): checking a 2nd/3rd box switches into combined view — "N empresas selecionadas" header,
+"Empresa" column appears in the lançamentos table with the right name per row, `#avisoMultiEmpresa`
+shows and `#cardNovoLancamento`/the two cadastro forms all hide; Resumo's totals summed correctly
+(R$100+R$200 receitas = R$300 across two companies, confirmed by direct addition) and
+`saldo_por_conta`/`por_categoria` rows carried the right empresa-name prefix per row; unchecking
+back down to one selection restored the ordinary single-empresa view (form visible again, no
+"Empresa" column). One non-bug caught while testing: with the checkbox panel left open, a
+coordinate-based click meant for the "Resumo" tab landed on a checkbox underneath it instead
+(unchecked a filial) — confirms the "close the panel first" testing note above; the page's own
+click-outside-closes-panel handling was not itself at fault.
 
 ### Auth (Fase 4 — done)
 

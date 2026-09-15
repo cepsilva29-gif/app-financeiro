@@ -67,7 +67,11 @@
     <div>
       <h1 id="empresaNome" class="text-2xl font-bold text-slate-900">Carregando...</h1>
       <p class="text-sm text-slate-500">Controle de gastos e receitas — <span id="empresaSlug"></span></p>
-      <select id="seletorEmpresa" class="hidden mt-1 text-sm border rounded-lg px-2 py-1"></select>
+      <div class="relative mt-1">
+        <button id="botaoSeletorEmpresa" type="button" class="hidden text-sm border rounded-lg px-2 py-1 bg-white hover:bg-slate-50">Empresas ▾</button>
+        <div id="painelSeletorEmpresa" class="hidden absolute z-10 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-2 space-y-1 text-sm min-w-[200px]"></div>
+      </div>
+      <p id="avisoMultiEmpresa" class="hidden mt-1 text-xs text-amber-600">Visualização somada de várias empresas — selecione só uma pra adicionar lançamentos.</p>
     </div>
     <div class="text-right">
       <div id="headerStatus" class="text-sm text-slate-400"></div>
@@ -88,7 +92,7 @@
   <!-- ===================== TAB: LANÇAMENTOS ===================== -->
   <section id="tab-lancamentos" class="tab-panel active space-y-6">
 
-    <div class="bg-white rounded-xl border border-slate-200 p-4">
+    <div id="cardNovoLancamento" data-form-empresa-unica class="bg-white rounded-xl border border-slate-200 p-4">
       <h2 class="font-semibold mb-3">Novo lançamento</h2>
       <form id="formTransacao" class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <select name="tipo" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
@@ -141,6 +145,7 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="text-left text-slate-500 border-b border-slate-200">
+              <th id="colEmpresaHeader" class="hidden py-2 pr-2">Empresa</th>
               <th class="py-2 pr-2">Data</th>
               <th class="py-2 pr-2">Tipo</th>
               <th class="py-2 pr-2">Conta</th>
@@ -212,7 +217,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <h2 class="font-semibold mb-3">Categorias</h2>
-        <form id="formCategoria" class="flex gap-2 mb-4">
+        <form id="formCategoria" class="flex gap-2 mb-4" data-form-empresa-unica>
           <input name="nome" placeholder="Nome" required class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
           <select name="tipo" required class="border rounded-lg px-2 py-1.5 text-sm">
             <option value="receita">Receita</option>
@@ -225,7 +230,7 @@
 
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <h2 class="font-semibold mb-3">Contas</h2>
-        <form id="formConta" class="flex gap-2 mb-4">
+        <form id="formConta" class="flex gap-2 mb-4" data-form-empresa-unica>
           <input name="nome" placeholder="Nome" required class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
           <select name="tipo" required class="border rounded-lg px-2 py-1.5 text-sm">
             <option value="caixa">Caixa</option>
@@ -268,28 +273,39 @@ function clearToken() {
   try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(EMPRESA_ATIVA_KEY); } catch {}
 }
 
-// Matriz/filial: qual empresa está "ativa" agora (pode ser a própria, ou uma filial, se o token
-// for de uma matriz). Persistido por conveniência — não é credencial, só uma preferência de UI.
+// Matriz/filial: quais empresas estão "selecionadas" agora (a própria, e/ou filiais, se o token
+// for de uma matriz — 2+ = visão somada). Persistido por conveniência — não é credencial, só uma
+// preferência de UI. Formato: array de ids em JSON.
 const EMPRESA_ATIVA_KEY = "financeiro_empresa_ativa_id";
-function getEmpresaAtivaSalva() {
-  try { const v = localStorage.getItem(EMPRESA_ATIVA_KEY); return v ? Number(v) : null; } catch { return null; }
+function getEmpresasSelecionadasSalvas() {
+  try {
+    const v = localStorage.getItem(EMPRESA_ATIVA_KEY);
+    if (!v) return null;
+    const parsed = JSON.parse(v);
+    return Array.isArray(parsed) ? parsed.map(Number) : [Number(parsed)];
+  } catch { return null; }
 }
-function setEmpresaAtivaSalva(id) {
-  try { localStorage.setItem(EMPRESA_ATIVA_KEY, String(id)); } catch {}
+function setEmpresasSelecionadasSalvas(ids) {
+  try { localStorage.setItem(EMPRESA_ATIVA_KEY, JSON.stringify(ids)); } catch {}
 }
 
 // ---------------------------------------------------------------------------
 // Cliente da API (n8n)
 // ---------------------------------------------------------------------------
-async function api(path, { method = "GET", query = {}, body = null } = {}) {
+// empresaId: override explícito pra essa chamada (usado ao buscar dados de várias empresas em
+// paralelo — nunca depende de um "estado atual" compartilhado, pra não correr risco de uma
+// chamada pegar o empresaId errado no meio de um Promise.all). Sem empresaId, cai no comportamento
+// padrão: state.empresaAtivaId (só faz sentido quando exatamente 1 empresa está selecionada).
+async function api(path, { method = "GET", query = {}, body = null, empresaId } = {}) {
   let url = `${CONFIG.API_BASE}/${path}`;
   const options = { method, headers: { "X-Empresa-Token": getToken() || "" } };
 
+  const alvo = empresaId !== undefined ? empresaId : state.empresaAtivaId;
   const q = { ...query };
   const b = { ...(body || {}) };
-  if (state.empresaAtivaId) {
-    if (method === "GET") q.empresa_id = state.empresaAtivaId;
-    else b.empresa_id = state.empresaAtivaId;
+  if (alvo) {
+    if (method === "GET") q.empresa_id = alvo;
+    else b.empresa_id = alvo;
   }
 
   if (method === "GET") {
@@ -319,9 +335,11 @@ function mostrarErro(msg) {
 // Estado
 // ---------------------------------------------------------------------------
 const state = {
-  empresa: null,       // info da empresa atualmente ativa (própria ou filial, se estiver "vendo como matriz")
-  empresaHome: null,   // {id, nome} da empresa do próprio token — constante, não muda ao trocar de filial
-  empresaAtivaId: null,
+  empresa: null,               // info pra exibir no cabeçalho — quando 1 selecionada, é ela; quando 2+, é um resumo
+  empresaHome: null,           // {id, nome} da empresa do próprio token — constante
+  empresasDisponiveis: [],     // [{id, nome}] = home + filiais, pra montar o painel de seleção
+  empresasSelecionadasIds: [], // sempre >= 1 id
+  empresaAtivaId: null,        // = empresasSelecionadasIds[0] quando só 1 selecionada; null quando 2+ (força uso explícito de empresaId)
   categorias: [],
   contas: [],
   transacoes: [],
@@ -358,60 +376,108 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 // Carregamento inicial
 // ---------------------------------------------------------------------------
 async function carregarEmpresa() {
-  // 1ª chamada: empresaAtivaId ainda não está setado, então não manda override — isto é sempre
-  // a empresa do próprio token (a "home"), nunca uma filial.
+  // empresaAtivaId ainda não está setado aqui, então não manda override — isto é sempre a
+  // empresa do próprio token (a "home"), nunca uma filial.
   const primeira = await api("empresa-info");
   state.empresaHome = { id: primeira.empresa.id, nome: primeira.empresa.nome };
-
-  const salvo = getEmpresaAtivaSalva();
   const filiais = primeira.empresa.filiais || [];
-  const salvoValido = salvo && (salvo === primeira.empresa.id || filiais.some(f => f.id === salvo));
-  state.empresaAtivaId = salvoValido ? salvo : primeira.empresa.id;
+  state.empresasDisponiveis = [{ id: primeira.empresa.id, nome: primeira.empresa.nome }, ...filiais];
 
-  if (state.empresaAtivaId === primeira.empresa.id) {
-    aplicarInfoEmpresa(primeira.empresa);
-  } else {
-    const segunda = await api("empresa-info");
-    aplicarInfoEmpresa(segunda.empresa);
-  }
-}
+  const salvas = getEmpresasSelecionadasSalvas();
+  const idsValidos = state.empresasDisponiveis.map(e => e.id);
+  const filtradas = (salvas || []).filter(id => idsValidos.includes(id));
+  state.empresasSelecionadasIds = filtradas.length > 0 ? filtradas : [primeira.empresa.id];
 
-function aplicarInfoEmpresa(empresa) {
-  state.empresa = empresa;
-  document.getElementById("empresaNome").textContent = empresa.nome;
-  document.getElementById("empresaSlug").textContent = empresa.slug;
-  document.getElementById("headerStatus").textContent = "";
   renderizarSeletorEmpresa();
 }
 
-function renderizarSeletorEmpresa() {
-  const sel = document.getElementById("seletorEmpresa");
-  const filiais = state.empresa.filiais || [];
-  if (filiais.length === 0) {
-    sel.classList.add("hidden");
-    return;
-  }
-  sel.classList.remove("hidden");
-  const opcoes = [{ id: state.empresaHome.id, nome: state.empresaHome.nome + " (própria)" }, ...filiais];
-  sel.innerHTML = opcoes.map(o => `<option value="${o.id}">${o.nome}</option>`).join("");
-  sel.value = String(state.empresaAtivaId);
+// ---------------------------------------------------------------------------
+// Seleção de empresa(s) — 1 = modo normal, 2+ = visão somada (view-only)
+// ---------------------------------------------------------------------------
+function empresaSelecionadaNome(id) {
+  return state.empresasDisponiveis.find(e => e.id === id)?.nome || `#${id}`;
 }
 
-document.getElementById("seletorEmpresa").addEventListener("change", async (e) => {
-  state.empresaAtivaId = Number(e.target.value);
-  setEmpresaAtivaSalva(state.empresaAtivaId);
-  try {
+async function recarregarTudo() {
+  const multi = state.empresasSelecionadasIds.length > 1;
+  document.getElementById("avisoMultiEmpresa").classList.toggle("hidden", !multi);
+  document.getElementById("colEmpresaHeader").classList.toggle("hidden", !multi);
+  document.querySelectorAll("[data-form-empresa-unica]").forEach(el => el.classList.toggle("hidden", multi));
+
+  if (!multi) {
+    state.empresaAtivaId = state.empresasSelecionadasIds[0];
     const { empresa } = await api("empresa-info");
-    aplicarInfoEmpresa(empresa);
-    await Promise.all([carregarCategorias(), carregarContas()]);
-    await carregarTransacoes();
-  } catch (err) {
-    mostrarErro(err.message);
+    state.empresa = empresa;
+    document.getElementById("empresaNome").textContent = empresa.nome;
+    document.getElementById("empresaSlug").textContent = empresa.slug;
+  } else {
+    state.empresaAtivaId = null;
+    const nomes = state.empresasSelecionadasIds.map(empresaSelecionadaNome);
+    state.empresa = { moeda: "BRL" }; // assume mesma moeda entre as empresas somadas — não há UI hoje pra moedas diferentes
+    document.getElementById("empresaNome").textContent = `${nomes.length} empresas selecionadas`;
+    document.getElementById("empresaSlug").textContent = nomes.join(" + ");
+  }
+  document.getElementById("headerStatus").textContent = "";
+
+  await Promise.all([carregarCategorias(), carregarContas()]);
+  await carregarTransacoes();
+}
+
+function renderizarSeletorEmpresa() {
+  const botao = document.getElementById("botaoSeletorEmpresa");
+  const painel = document.getElementById("painelSeletorEmpresa");
+  if (state.empresasDisponiveis.length <= 1) {
+    botao.classList.add("hidden");
+    return;
+  }
+  botao.classList.remove("hidden");
+
+  const nomesSelecionados = state.empresasSelecionadasIds.map(empresaSelecionadaNome);
+  botao.textContent = (nomesSelecionados.length > 1 ? `${nomesSelecionados.length} empresas` : nomesSelecionados[0]) + " ▾";
+
+  painel.innerHTML = state.empresasDisponiveis.map(e => `
+    <label class="flex items-center gap-2 px-1 py-0.5 hover:bg-slate-50 rounded cursor-pointer">
+      <input type="checkbox" data-empresa-id="${e.id}" ${state.empresasSelecionadasIds.includes(e.id) ? "checked" : ""}>
+      <span>${e.nome}${e.id === state.empresaHome.id ? " (própria)" : ""}</span>
+    </label>
+  `).join("");
+
+  painel.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", async () => {
+      const id = Number(cb.dataset.empresaId);
+      let novos = cb.checked
+        ? [...new Set([...state.empresasSelecionadasIds, id])]
+        : state.empresasSelecionadasIds.filter(x => x !== id);
+      if (novos.length === 0) { cb.checked = true; return; } // sempre pelo menos 1 marcada
+      state.empresasSelecionadasIds = novos;
+      setEmpresasSelecionadasSalvas(novos);
+      renderizarSeletorEmpresa();
+      try {
+        await recarregarTudo();
+      } catch (err) {
+        mostrarErro(err.message);
+      }
+    });
+  });
+}
+
+document.getElementById("botaoSeletorEmpresa").addEventListener("click", () => {
+  document.getElementById("painelSeletorEmpresa").classList.toggle("hidden");
+});
+document.addEventListener("click", (e) => {
+  const painel = document.getElementById("painelSeletorEmpresa");
+  const botao = document.getElementById("botaoSeletorEmpresa");
+  if (!painel.classList.contains("hidden") && !painel.contains(e.target) && e.target !== botao) {
+    painel.classList.add("hidden");
   }
 });
 
 async function carregarCategorias() {
-  const { categorias } = await api("listar-categorias");
+  let categorias = [];
+  for (const id of state.empresasSelecionadasIds) {
+    const r = await api("listar-categorias", { empresaId: id });
+    categorias = categorias.concat(r.categorias);
+  }
   state.categorias = categorias;
 
   const selectCategoria = document.getElementById("selectCategoria");
@@ -428,7 +494,11 @@ async function carregarCategorias() {
 }
 
 async function carregarContas() {
-  const { contas } = await api("listar-contas");
+  let contas = [];
+  for (const id of state.empresasSelecionadasIds) {
+    const r = await api("listar-contas", { empresaId: id });
+    contas = contas.concat(r.contas);
+  }
   state.contas = contas;
 
   const selectConta = document.getElementById("selectConta");
@@ -449,7 +519,13 @@ async function carregarContas() {
 }
 
 async function carregarTransacoes(filtros = {}) {
-  const { transacoes } = await api("listar-transacoes", { query: filtros });
+  const multi = state.empresasSelecionadasIds.length > 1;
+  let transacoes = [];
+  for (const id of state.empresasSelecionadasIds) {
+    const r = await api("listar-transacoes", { query: filtros, empresaId: id });
+    transacoes = transacoes.concat(r.transacoes.map(t => ({ ...t, _empresaId: id })));
+  }
+  transacoes.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
   state.transacoes = transacoes;
 
   const tbody = document.getElementById("tabelaTransacoes");
@@ -464,6 +540,7 @@ async function carregarTransacoes(filtros = {}) {
 
   tbody.innerHTML = transacoes.map(t => `
     <tr class="border-b border-slate-100" data-id="${t.id}">
+      ${multi ? `<td class="py-2 pr-2 text-xs text-slate-500">${empresaSelecionadaNome(t._empresaId)}</td>` : ""}
       <td class="py-2 pr-2">${t.data}</td>
       <td class="py-2 pr-2">
         <span class="text-xs px-2 py-0.5 rounded-full ${t.tipo === "receita" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}">${t.tipo}</span>
@@ -474,7 +551,7 @@ async function carregarTransacoes(filtros = {}) {
       <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(t.valor)}</td>
       <td class="py-2 pr-2 text-xs text-slate-400">${t.status}</td>
       <td class="py-2 pr-2 text-right">
-        <button class="text-red-500 hover:underline text-xs" data-excluir="${t.id}">excluir</button>
+        <button class="text-red-500 hover:underline text-xs" data-excluir="${t.id}" data-empresa-id="${t._empresaId}">excluir</button>
       </td>
     </tr>
   `).join("");
@@ -483,7 +560,7 @@ async function carregarTransacoes(filtros = {}) {
     btn.addEventListener("click", async () => {
       if (!confirm("Excluir este lançamento?")) return;
       try {
-        await api("excluir-transacao", { method: "POST", body: { id: Number(btn.dataset.excluir) } });
+        await api("excluir-transacao", { method: "POST", body: { id: Number(btn.dataset.excluir) }, empresaId: Number(btn.dataset.empresaId) });
         await carregarTransacoes(filtrosAtuais());
       } catch (e) {
         mostrarErro(e.message);
@@ -578,23 +655,37 @@ async function carregarResumo() {
   if (inicio) query.periodo_inicio = inicio;
   if (fim) query.periodo_fim = fim;
 
+  const multi = state.empresasSelecionadasIds.length > 1;
+
   try {
-    const resumo = await api("resumo-periodo", { query });
+    let totais = { receitas: 0, despesas: 0, saldo: 0 };
+    let saldoPorConta = [];
+    let porCategoria = [];
 
-    document.getElementById("totalReceitas").textContent = formatarMoeda(resumo.totais.receitas);
-    document.getElementById("totalDespesas").textContent = formatarMoeda(resumo.totais.despesas);
-    document.getElementById("totalSaldo").textContent = formatarMoeda(resumo.totais.saldo);
+    for (const id of state.empresasSelecionadasIds) {
+      const resumo = await api("resumo-periodo", { query, empresaId: id });
+      totais.receitas += resumo.totais.receitas;
+      totais.despesas += resumo.totais.despesas;
+      totais.saldo += resumo.totais.saldo;
+      const prefixo = multi ? `${empresaSelecionadaNome(id)} — ` : "";
+      saldoPorConta = saldoPorConta.concat(resumo.saldo_por_conta.map(c => ({ ...c, nome: prefixo + c.nome })));
+      porCategoria = porCategoria.concat(resumo.por_categoria.map(c => ({ ...c, _empresaId: id })));
+    }
 
-    document.getElementById("saldoPorConta").innerHTML = resumo.saldo_por_conta.map(c => `
+    document.getElementById("totalReceitas").textContent = formatarMoeda(totais.receitas);
+    document.getElementById("totalDespesas").textContent = formatarMoeda(totais.despesas);
+    document.getElementById("totalSaldo").textContent = formatarMoeda(totais.saldo);
+
+    document.getElementById("saldoPorConta").innerHTML = saldoPorConta.map(c => `
       <div class="border border-slate-200 rounded-lg p-3">
         <p class="text-xs text-slate-500">${c.nome}</p>
         <p class="text-lg font-semibold">${formatarMoeda(c.saldo)}</p>
       </div>
     `).join("") || '<p class="text-slate-400 text-sm">Nenhuma conta cadastrada.</p>';
 
-    document.getElementById("tabelaCategorias").innerHTML = resumo.por_categoria.map(c => `
+    document.getElementById("tabelaCategorias").innerHTML = porCategoria.map(c => `
       <tr class="border-b border-slate-100">
-        <td class="py-2 pr-2">${nomeCategoria(c.categoria_id)}</td>
+        <td class="py-2 pr-2">${multi ? `${empresaSelecionadaNome(c._empresaId)} — ` : ""}${nomeCategoria(c.categoria_id)}</td>
         <td class="py-2 pr-2 text-right text-emerald-700">${formatarMoeda(c.receita)}</td>
         <td class="py-2 pr-2 text-right text-red-700">${formatarMoeda(c.despesa)}</td>
       </tr>
@@ -628,8 +719,7 @@ function mostrarGate(mensagemErro) {
 async function iniciarApp() {
   await carregarEmpresa();
   mostrarApp();
-  await Promise.all([carregarCategorias(), carregarContas()]);
-  await carregarTransacoes();
+  await recarregarTudo();
 
   const hoje = new Date().toISOString().slice(0, 10);
   document.querySelector('#formTransacao [name="data"]').value = hoje;
