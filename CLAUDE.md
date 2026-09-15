@@ -47,6 +47,7 @@ owner. Keep new docs and UI copy in Portuguese too.
   second empresa (`demo2`) this way with zero manual database edits — the plan's own Fase 5
   acceptance test — and confirmed rejection of a duplicate slug and of invalid input.
 - **Fase 6 (extensões pós-v1) — deliberately out of scope**, see below.
+- **Frontend deployed to production** (2026-09-15) — see "Deployment" below.
 
 ## Architecture
 
@@ -251,10 +252,61 @@ collisions:
   — every value they need comes from the webhook payload or the credential above, so nothing
   requires editing the shared n8n container's environment.
 
+## Deployment
+
+This directory is its **own git repo** (`git init` run directly inside `App_Financeiro/`, not part
+of the outer `workpace` repo — same pattern `App_Agendamento` already uses, see its own nested
+`.git`), pushed to `github.com/cepsilva29-gif/app-financeiro`.
+
+- **Repo is public, deliberately.** This Easypanel instance's GitHub integration can only pull
+  **public** repos (no GitHub App installed — confirmed by testing: `services.app.updateSourceGithub`
+  against a private repo fails with `"Cannot find public repository and your Github token is
+  invalid"`). Matches the existing `app-agendamento-salao` setup. There is no real secret in this
+  repo's tracked files (`.env` is git-ignored, n8n workflow JSON references credentials by
+  id/name only, never by value) — going public was a deliberate, user-confirmed tradeoff, not an
+  oversight.
+- **Easypanel** (same instance as the n8n container, `179.197.233.123:3000`, project
+  `app_financeiro`, service `frontend`): builds from this repo's `frontend/` path (`Dockerfile` →
+  `nginx:alpine` serving the static SPA), source type `github`, `ref: master`. Configured via the
+  Easypanel tRPC API (`POST /api/trpc/<router>.<procedure>`, bearer token from
+  `POST /api/trpc/auth.login` with the Easypanel `USUARIO`/`SENHA` in `.env`) — same
+  login-then-bearer-token pattern as documented for `App_Agendamento`'s Easypanel work; no browser
+  login was used. `services.app.createService` (not documented anywhere findable in the panel's
+  own JS bundle, unlike every other procedure used in this project — found by guessing the obvious
+  name and it worked first try) creates a service; `services.app.updateSourceGithub` points it at
+  a repo; `services.app.deployService` triggers a build. `autoDeploy: true` was set on the source,
+  but per `App_Agendamento`'s own notes that flag doesn't reliably persist/apply — don't assume a
+  `git push` alone redeploys; call `deployService` (or re-check `inspectService`'s `commit.sha`
+  against the repo's latest) after pushing.
+- **Live URL**: `https://app_financeiro-frontend.y7ycus.easypanel.host/` — Easypanel's own
+  managed subdomain (created via `domains.createDomain` with `certificateResolver: ""`, no
+  external DNS needed; this is why bringing the service up didn't require touching Cloudflare).
+  Verified live in a real browser: gate screen renders, matches local testing exactly.
+- **Custom domain live**: `https://financeiro.engenhariadedadosn8n.shop/` — Cloudflare A record
+  (`→ 179.197.233.123`) plus a matching `domains.createDomain` entry in Easypanel for the
+  `frontend` service. Both of those DNS/domain steps are **behind an explicit-confirmation gate in
+  this environment** and were done by the user directly (in the Cloudflare and Easypanel dashboards
+  — not by an API call from this session), after being given exact click-by-click instructions.
+  One detail that diverges from every other subdomain on this zone: this record's Cloudflare proxy
+  is **on** (orange cloud) — every other `*.engenhariadedadosn8n.shop` record is "DNS only". It
+  still resolves and serves correctly (verified via `curl --resolve` against Cloudflare's edge IP
+  and confirmed in a real browser), so this isn't broken, just inconsistent with the zone's usual
+  pattern — worth knowing if a future cert/routing issue only affects this one domain and not the
+  others, since proxied traffic terminates TLS at Cloudflare's edge rather than passing straight
+  through to Traefik. `domains.listDomains` for this service now lists both this and the
+  `y7ycus.easypanel.host` domain.
+- Making the GitHub repo public was **also** behind an explicit-confirmation gate (a private→public
+  visibility flip reads as a potential data-exposure action) — it happened only after the user was
+  asked directly and said yes. Don't flip a repo's visibility without that same explicit ask.
+
 ## Working with this repo
 
-- **Git root is the parent `workpace` directory**, shared with unrelated sibling projects — treat
-  `App_Financeiro/` as the project boundary regardless of what `git status` shows from here.
+- **This directory is its own git repo** (see "Deployment" above) — it is *also* physically nested
+  inside the parent `workpace` directory, which is a *separate, unrelated* git repo shared with
+  sibling projects. Two independent `.git` histories, one inside the other; `App_Financeiro/`'s own
+  history is what matters for this project, `workpace`'s only sees it (if at all) as an opaque
+  directory. Don't confuse `git status`/`git log` output from one with the other — always confirm
+  which repo a shell is actually in before trusting its output.
 - **`.env` in this directory holds real, live infrastructure credentials** (Hostinger, Easypanel,
   Cloudflare, Supabase, n8n — including a Supabase Management API personal access token and this
   project's n8n API key) — not placeholders. It's excluded via `.gitignore`; never remove that

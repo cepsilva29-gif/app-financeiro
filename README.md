@@ -24,6 +24,10 @@ qualquer outro projeto.
   (protegido por um token de admin separado, não pelo `X-Empresa-Token`) — cria a empresa, o
   `access_token` dela, as categorias padrão e a conta inicial numa chamada só. Testado criando a
   `demo2` sem editar nada no banco na mão.
+- **Frontend em produção**: https://financeiro.engenhariadedadosn8n.shop/ (domínio próprio, via
+  Cloudflare com proxy ligado) — também acessível pelo domínio padrão do Easypanel,
+  https://app_financeiro-frontend.y7ycus.easypanel.host/. Build automático a partir deste repo
+  (`frontend/`, `Dockerfile` com nginx).
 
 ## Endpoints (n8n)
 
@@ -97,6 +101,22 @@ Primeiro acesso pede o código de acesso (token) da empresa — o da `demo` est�
 `?token=<token>` na URL (o token é lido, guardado no navegador, e removido da URL automaticamente).
 Depois de entrar uma vez, o token fica salvo no `localStorage` — "trocar código de acesso" no
 cabeçalho limpa e pede de novo.
+
+## Deploy (produção)
+
+- **Repositório**: `github.com/cepsilva29-gif/app-financeiro` — **público**, deliberadamente: a
+  integração GitHub desta instância do Easypanel só alcança repositórios públicos (sem GitHub App
+  instalado), mesma limitação que já vale para o `app-agendamento-salao`. Não tem segredo real no
+  código (o `.env` nunca é commitado).
+- **Easypanel**: projeto `app_financeiro`, serviço `frontend`, fonte GitHub apontando pra
+  `/frontend` deste repo (build via `frontend/Dockerfile`, nginx servindo estático).
+  `autoDeploy: true` está setado, mas isso não confirma que o Easypanel realmente reconstrói a
+  cada push (ver nota de `autoDeploy` não confiável no `CLAUDE.md` do `App_Agendamento`) — depois
+  de um `git push`, confirmar/disparar o rebuild.
+- **Domínio**: `financeiro.engenhariadedadosn8n.shop` (registro A na Cloudflare, criado com o proxy
+  **ligado** — nuvem laranja, diferente dos demais subdomínios desse domínio que estão todos como
+  "DNS only") apontando pro mesmo serviço no Easypanel. Também acessível pelo domínio padrão do
+  Easypanel (`app_financeiro-frontend.y7ycus.easypanel.host`).
 
 ## Configuração local
 
