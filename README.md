@@ -30,6 +30,12 @@ qualquer outro projeto.
   Cloudflare com proxy ligado) — também acessível pelo domínio padrão do Easypanel,
   https://app_financeiro-frontend.y7ycus.easypanel.host/. Build automático a partir deste repo
   (`frontend/`, `Dockerfile` com nginx).
+- **Cadastro público de empresa nova** direto no frontend (link "Ainda não tem cadastro?" na tela
+  de login) — chama `POST /webhook/financeiro/cadastro-publico`, sem nenhuma autenticação (é assim
+  de propósito, pra poder ser chamado pelo navegador de qualquer visitante). Cria a empresa com
+  categorias/conta padrão e manda o link de acesso por email — não devolve o `access_token` na
+  resposta (diferente do onboarding via admin). **Sem proteção contra abuso ainda** (sem captcha,
+  sem limite de tentativas) — decisão consciente por enquanto, revisar se virar problema.
 
 ## Endpoints (n8n)
 
@@ -50,6 +56,7 @@ onboarding, que usa um token de admin à parte (ver `CLAUDE.md`).
 | POST | `/webhook/financeiro/excluir-transacao` | exclui lançamento (por `id`) |
 | GET | `/webhook/financeiro/resumo-periodo` | saldo por conta + totais por categoria/tipo no período |
 | POST | `/webhook/financeiro/onboarding` | **cria empresa nova** — requer `X-Admin-Token`, não `X-Empresa-Token` |
+| POST | `/webhook/financeiro/cadastro-publico` | **cria empresa nova, self-service** — sem autenticação nenhuma; usado pelo botão "Criar conta da empresa" do frontend |
 
 ## Cadastrando uma empresa nova
 
@@ -67,6 +74,12 @@ conjunto padrão da `demo` (Vendas/Serviços/receita, Fornecedores/despesa, cont
 A resposta traz `email_enviado: true/false` — se `false`, vem `email_erro` com o motivo (ex:
 domínio do Resend não verificado, endereço inválido). A empresa é criada **mesmo se o email
 falhar** — o `access_token` sempre volta na resposta como plano B, pra você mandar manualmente.
+
+**Alternativa self-service**: a própria empresa pode se cadastrar direto pelo frontend, sem você
+precisar rodar nada — botão "Ainda não tem cadastro?" na tela de login. Usa
+`POST /webhook/financeiro/cadastro-publico` (sem `X-Admin-Token`, sem nenhuma autenticação),
+sempre com categorias/conta padrão (não dá pra customizar nesse fluxo), e a resposta **não**
+inclui o `access_token` — só uma mensagem confirmando que o email foi (ou não) enviado.
 
 ## Documentação
 

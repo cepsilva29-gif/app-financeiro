@@ -1,0 +1,542 @@
+{
+  "name": "financeiro - cadastro-publico",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "financeiro/cadastro-publico",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "ea7f1505-25d1-4798-be95-1d35b306530a",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        0
+      ],
+      "webhookId": "4456555c-21a3-4323-b0be-c073378ecc88"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst slug = String(body.slug || '').trim().toLowerCase();\nif (!slug || !/^[a-z0-9-]+$/.test(slug)) erros.push('slug');\nconst nome = String(body.nome || '').trim();\nif (!nome) erros.push('nome');\nconst email = String(body.email || '').trim().toLowerCase();\nif (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) erros.push('email');\nfunction gerarToken() {\n  try {\n    const { randomBytes } = require('crypto');\n    return 'fin_' + randomBytes(16).toString('hex');\n  } catch (e) {\n    let s = '';\n    for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);\n    return 'fin_' + s;\n  }\n}\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, slug, nome, email, moeda: 'BRL', timezone: 'America/Sao_Paulo', access_token: gerarToken() } }];"
+      },
+      "id": "bd997ec3-1393-4d93-8727-df20205b6653",
+      "name": "Validar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "733cf757-f9a2-4b1f-8299-d6f85125ce2f",
+      "name": "Dados Validos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": $json.erro } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 400
+        }
+      },
+      "id": "4d2a83ed-bc05-4a04-9ffe-2c76400949fe",
+      "name": "Responder Invalido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1000,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "empresas",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "slug",
+              "condition": "eq",
+              "keyValue": "={{ $('Validar Dados').first().json.slug }}"
+            }
+          ]
+        }
+      },
+      "id": "80aa5766-1cab-42ac-85a8-04aaeb3eed74",
+      "name": "Verificar Slug (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { disponivel: rows.length === 0 } }];"
+      },
+      "id": "026ff425-2a1b-4753-86de-69109775b5a1",
+      "name": "Checar Slug",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.disponivel }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a276eae9-dfcc-4dce-9ff0-4f8d6c682930",
+      "name": "Slug Disponivel?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Esse slug ja esta em uso. Escolha outro.\" } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 409
+        }
+      },
+      "id": "3c3efaf9-b4d8-446d-908b-308cd41ce02f",
+      "name": "Responder Slug Em Uso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "empresas",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "slug",
+              "fieldValue": "={{ $('Validar Dados').first().json.slug }}"
+            },
+            {
+              "fieldId": "access_token",
+              "fieldValue": "={{ $('Validar Dados').first().json.access_token }}"
+            },
+            {
+              "fieldId": "nome",
+              "fieldValue": "={{ $('Validar Dados').first().json.nome }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $('Validar Dados').first().json.email }}"
+            },
+            {
+              "fieldId": "timezone",
+              "fieldValue": "={{ $('Validar Dados').first().json.timezone }}"
+            },
+            {
+              "fieldId": "moeda",
+              "fieldValue": "={{ $('Validar Dados').first().json.moeda }}"
+            }
+          ]
+        }
+      },
+      "id": "75992396-1d92-43bf-a9e3-bb413d2762b7",
+      "name": "Criar Empresa (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cats = [\n  { nome: 'Vendas', tipo: 'receita' },\n  { nome: 'Servicos', tipo: 'receita' },\n  { nome: 'Fornecedores', tipo: 'despesa' },\n];\nconst empresaId = $('Criar Empresa (Supabase)').first().json.id;\nreturn cats.map(c => ({ json: { empresa_id: empresaId, nome: c.nome, tipo: c.tipo } }));"
+      },
+      "id": "bdc53d83-3d40-4eaf-8748-78131757bcc8",
+      "name": "Preparar Categorias",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "categorias",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "empresa_id",
+              "fieldValue": "={{ $json.empresa_id }}"
+            },
+            {
+              "fieldId": "nome",
+              "fieldValue": "={{ $json.nome }}"
+            },
+            {
+              "fieldId": "tipo",
+              "fieldValue": "={{ $json.tipo }}"
+            }
+          ]
+        }
+      },
+      "id": "6bec7a4d-9a8d-4452-86d7-cc68490c31b3",
+      "name": "Criar Categorias (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -320
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "contas",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "empresa_id",
+              "fieldValue": "={{ $('Criar Empresa (Supabase)').first().json.id }}"
+            },
+            {
+              "fieldId": "nome",
+              "fieldValue": "Caixa"
+            },
+            {
+              "fieldId": "tipo",
+              "fieldValue": "caixa"
+            },
+            {
+              "fieldId": "saldo_inicial",
+              "fieldValue": 0
+            }
+          ]
+        }
+      },
+      "id": "bb5ac3fc-9f42-442e-a816-1cae38ed24e4",
+      "name": "Criar Conta Inicial (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"from\": \"app_financeiro <financeiro@engenhariadedadosn8n.shop>\", \"to\": [$('Validar Dados').first().json.email], \"subject\": \"Bem-vindo(a) ao app_financeiro, \" + $('Validar Dados').first().json.nome + \"!\", \"html\": \"<p>Ol\\u00e1! O cadastro da <strong>\" + $('Validar Dados').first().json.nome + \"</strong> foi conclu\\u00eddo.</p>\" + \"<p><a href='https://financeiro.engenhariadedadosn8n.shop/?token=\" + $('Criar Empresa (Supabase)').first().json.access_token + \"'>Clique aqui para acessar</a> \\u2014 o acesso fica salvo no seu navegador.</p>\" + \"<p>Se o link n\\u00e3o funcionar, acesse <a href='https://financeiro.engenhariadedadosn8n.shop'>https://financeiro.engenhariadedadosn8n.shop</a> e informe este c\\u00f3digo de acesso:</p>\" + \"<p><code>\" + $('Criar Empresa (Supabase)').first().json.access_token + \"</code></p>\" } }}",
+        "options": {}
+      },
+      "id": "e817bbf9-378a-4e8d-b057-aa7631c79917",
+      "name": "Enviar Email Boas Vindas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        -80
+      ],
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1wGIJB3O2aPKsiOi",
+          "name": "Resend - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const emailEnviado = !$json.error;\nconst email = $('Validar Dados').first().json.email;\nreturn [{ json: {\n  sucesso: true,\n  email_enviado: emailEnviado,\n  mensagem: emailEnviado\n    ? 'Cadastro realizado! Enviamos o link de acesso para ' + email + '.'\n    : 'Empresa criada, mas nao conseguimos enviar o email automaticamente. Entre em contato com o suporte.'\n} }];"
+      },
+      "id": "d7c67ac2-6d96-4fe3-a783-f2022f8532c9",
+      "name": "Montar Resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          },
+          "responseCode": 201
+        }
+      },
+      "id": "b7f74af8-e353-45d8-92e5-26e37daf4e12",
+      "name": "Responder Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Dados": {
+      "main": [
+        [
+          {
+            "node": "Dados Validos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados Validos?": {
+      "main": [
+        [
+          {
+            "node": "Verificar Slug (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Slug (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Checar Slug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar Slug": {
+      "main": [
+        [
+          {
+            "node": "Slug Disponivel?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slug Disponivel?": {
+      "main": [
+        [
+          {
+            "node": "Criar Empresa (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Slug Em Uso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Empresa (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Preparar Categorias",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Criar Conta Inicial (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Categorias": {
+      "main": [
+        [
+          {
+            "node": "Criar Categorias (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Conta Inicial (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Boas Vindas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Boas Vindas": {
+      "main": [
+        [
+          {
+            "node": "Montar Resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Resposta": {
+      "main": [
+        [
+          {
+            "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

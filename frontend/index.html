@@ -18,14 +18,45 @@
 <!-- ===================== GATE: código de acesso ===================== -->
 <div id="appGate" class="min-h-screen flex items-center justify-center px-4">
   <div class="bg-white rounded-xl border border-slate-200 p-6 w-full max-w-sm">
-    <h1 class="text-lg font-bold text-slate-900 mb-1">app_financeiro</h1>
-    <p class="text-sm text-slate-500 mb-4">Digite o código de acesso da sua empresa.</p>
-    <form id="formGate" class="space-y-3">
-      <input name="token" type="text" placeholder="fin_..." required autofocus
-        class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
-      <button type="submit" class="w-full bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Entrar</button>
-    </form>
-    <p id="erroGate" class="hidden mt-3 text-sm text-red-600"></p>
+
+    <!-- Entrar -->
+    <div id="painelEntrar">
+      <h1 class="text-lg font-bold text-slate-900 mb-1">app_financeiro</h1>
+      <p class="text-sm text-slate-500 mb-4">Digite o código de acesso da sua empresa.</p>
+      <form id="formGate" class="space-y-3">
+        <input name="token" type="text" placeholder="fin_..." required autofocus
+          class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
+        <button type="submit" class="w-full bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Entrar</button>
+      </form>
+      <p id="erroGate" class="hidden mt-3 text-sm text-red-600"></p>
+      <button id="btnMostrarCadastro" class="mt-4 text-sm text-slate-500 underline">Ainda não tem cadastro? Criar conta da empresa</button>
+    </div>
+
+    <!-- Cadastrar empresa -->
+    <div id="painelCadastro" class="hidden">
+      <h1 class="text-lg font-bold text-slate-900 mb-1">Cadastrar empresa</h1>
+      <p class="text-sm text-slate-500 mb-4">Enviamos o link de acesso por email assim que criar.</p>
+      <form id="formCadastroPublico" class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Nome da empresa</label>
+          <input name="nome" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Endereço do painel (slug)</label>
+          <input name="slug" type="text" required pattern="[a-z0-9-]+"
+            class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Email</label>
+          <input name="email" type="email" required class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <button type="submit" class="w-full bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Cadastrar</button>
+      </form>
+      <p id="erroCadastro" class="hidden mt-3 text-sm text-red-600"></p>
+      <p id="sucessoCadastro" class="hidden mt-3 text-sm text-emerald-700"></p>
+      <button id="btnMostrarEntrar" class="mt-4 text-sm text-slate-500 underline">Já tem cadastro? Entrar</button>
+    </div>
+
   </div>
 </div>
 
@@ -554,6 +585,63 @@ document.getElementById("formGate").addEventListener("submit", async (e) => {
 document.getElementById("btnTrocarToken").addEventListener("click", () => {
   clearToken();
   mostrarGate();
+});
+
+// ---------------------------------------------------------------------------
+// Cadastro público de empresa nova
+// ---------------------------------------------------------------------------
+function slugificar(texto) {
+  return texto
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+document.getElementById("btnMostrarCadastro").addEventListener("click", () => {
+  document.getElementById("painelEntrar").classList.add("hidden");
+  document.getElementById("painelCadastro").classList.remove("hidden");
+});
+document.getElementById("btnMostrarEntrar").addEventListener("click", () => {
+  document.getElementById("painelCadastro").classList.add("hidden");
+  document.getElementById("painelEntrar").classList.remove("hidden");
+});
+
+const campoNomeCadastro = document.querySelector('#formCadastroPublico [name="nome"]');
+const campoSlugCadastro = document.querySelector('#formCadastroPublico [name="slug"]');
+let slugEditadoManualmente = false;
+campoSlugCadastro.addEventListener("input", () => { slugEditadoManualmente = true; });
+campoNomeCadastro.addEventListener("input", () => {
+  if (!slugEditadoManualmente) campoSlugCadastro.value = slugificar(campoNomeCadastro.value);
+});
+
+document.getElementById("formCadastroPublico").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const dados = Object.fromEntries(new FormData(form).entries());
+  const erroEl = document.getElementById("erroCadastro");
+  const sucessoEl = document.getElementById("sucessoCadastro");
+  erroEl.classList.add("hidden");
+  sucessoEl.classList.add("hidden");
+
+  try {
+    const res = await fetch(`${CONFIG.API_BASE}/cadastro-publico`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dados),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.sucesso === false) {
+      throw new Error(data.mensagem || `Erro ${res.status}`);
+    }
+    sucessoEl.textContent = data.mensagem;
+    sucessoEl.classList.remove("hidden");
+    form.reset();
+    slugEditadoManualmente = false;
+  } catch (err) {
+    erroEl.textContent = err.message;
+    erroEl.classList.remove("hidden");
+  }
 });
 
 // ---------------------------------------------------------------------------

@@ -51,6 +51,10 @@ owner. Keep new docs and UI copy in Portuguese too.
   field.
 - **Fase 6 (extensões pós-v1) — deliberately out of scope**, see below.
 - **Frontend deployed to production** (2026-09-15) — see "Deployment" below.
+- **Public self-service signup added** (2026-09-15) — a "cadastrar empresa" flow in the frontend
+  itself, calling a new, deliberately unauthenticated `12-cadastro-publico` workflow. See "Public
+  self-service signup" below — in particular, this has **no abuse protection** (no captcha, no
+  rate limit) by explicit, informed user decision; don't assume that's an oversight to "fix".
 
 ## Architecture
 
@@ -204,6 +208,44 @@ repo's JSON) → `Registrar Envio` (Code, folds the HTTP result into the respons
   the response field and fall back to manually sending the `access_token` that's still in the same
   response.
 
+### Public self-service signup (`12-cadastro-publico`)
+
+Added post-launch (2026-09-15), same day as the Resend integration — user explicitly asked for a
+frontend "cadastrar empresa" button, was told the tradeoff, and chose to accept it: **this
+workflow has no authentication of any kind**, unlike every other workflow in this project. That's
+deliberate, not an oversight — `11-onboarding` requires `X-Admin-Token`, which can never be
+embedded in frontend JS (anyone viewing page source could copy it and create empresas using the
+operator's own admin credential). So this is a second, separate, intentionally-public workflow
+that does almost the same thing as `11-onboarding` but hardcodes the categoria/conta defaults
+(no `categorias`/`conta_inicial` override — a public caller doesn't get that much control) and,
+critically, **never returns `access_token` in the response** — only `{sucesso, email_enviado,
+mensagem}`. The token only ever leaves the system via the Resend email. This is intentional: an
+admin calling `11-onboarding` from a trusted context (`curl`, `X-Admin-Token` in hand) can
+reasonably see the token as a fallback if email fails; an anonymous public caller should not get a
+working credential handed back in the same HTTP response that has no rate limiting on it.
+
+- **No abuse protection exists today** — no captcha, no rate limiting, no disposable-email
+  blocking. Anyone can call `POST /webhook/financeiro/cadastro-publico` as many times as they want
+  and create unlimited empresas (each just needs a unique `slug`). Known, accepted gap — revisit
+  if it actually gets abused, not preemptively.
+- Body: `{nome, slug, email}` only. Same validation rules as `11-onboarding` for each field.
+  Structurally the workflow is a near-duplicate of `11-onboarding`'s graph (same
+  auth-less-but-still-validated shape, same parallel-branch categorias/conta-inicial pattern, same
+  Resend HTTP node) — deliberately **not** refactored into a shared sub-workflow, because the two
+  have different security postures (admin vs. public) and different response shapes; keeping them
+  as separate, independently-readable workflow files was judged safer than a shared abstraction
+  that could accidentally leak the wrong behavior into the wrong caller if edited carelessly later.
+- Frontend wiring: `frontend/index.html`'s `#appGate` now has two toggled panels
+  (`#painelEntrar`/`#painelCadastro`, plain `hidden`-class toggling, no routing) — "Ainda não tem
+  cadastro?" / "Já tem cadastro?" links swap between them. The signup form's `slug` field
+  auto-fills from `nome` via a local `slugificar()` (strips accents, lowercases, replaces
+  non-alphanumerics with `-`) **until the user edits `slug` by hand** (`slugEditadoManualmente`
+  flag on its `input` event) — don't reintroduce a naive two-way binding that would stomp a
+  manually-typed slug on every keystroke in `nome`. The submit handler calls `cadastro-publico`
+  directly with a bare `fetch` (not the `api()` helper — there's no empresa token to attach yet,
+  and this call must never send one), shows the response `mensagem` in place (green
+  `#sucessoCadastro` / red `#erroCadastro`), and resets the form on success.
+
 ### Frontend (`frontend/index.html`)
 
 Single static file, vanilla JS, Tailwind via CDN, no build step. Gated behind a token screen
@@ -238,6 +280,9 @@ the address bar, "trocar código de acesso" clears `localStorage` and returns to
 tool during testing — confirmed via direct DOM inspection that this was a click-targeting issue in
 that tool, not a bug in the handler, which fired correctly once triggered). Test data was cleaned
 up via direct API/SQL calls afterward, not through the UI (see confirm() note above re: deletes).
+Also verified after adding public signup: nome→slug auto-fill, duplicate-slug error rendering,
+panel toggling both directions, and the full loop (signup → real email received → link → logged
+into the freshly-created empresa with its default categorias/conta present).
 
 ### Auth (Fase 4 — done)
 
