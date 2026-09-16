@@ -7,13 +7,13 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .tab-btn.active { border-color: #1e293b; color: #1e293b; font-weight: 600; }
+  .tab-btn.active { border-color: #D4AF37; color: #1E3A2F; font-weight: 600; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
   select, input { color-scheme: light; }
 </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="bg-[#FDFBF7] text-[#111111] min-h-screen">
 
 <!-- ===================== GATE: código de acesso ===================== -->
 <div id="appGate" class="min-h-screen flex items-center justify-center px-4">
@@ -21,12 +21,12 @@
 
     <!-- Entrar -->
     <div id="painelEntrar">
-      <h1 class="text-lg font-bold text-slate-900 mb-1">app_financeiro</h1>
+      <h1 class="text-lg font-bold text-[#111111] mb-1">app_financeiro</h1>
       <p class="text-sm text-slate-500 mb-4">Digite o código de acesso da sua empresa.</p>
       <form id="formGate" class="space-y-3">
         <input name="token" type="text" placeholder="fin_..." required autofocus
           class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
-        <button type="submit" class="w-full bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Entrar</button>
+        <button type="submit" class="w-full bg-[#1E3A2F] text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#16281F]">Entrar</button>
       </form>
       <p id="erroGate" class="hidden mt-3 text-sm text-red-600"></p>
       <button id="btnMostrarCadastro" class="mt-4 text-sm text-slate-500 underline">Ainda não tem cadastro? Criar conta da empresa</button>
@@ -34,7 +34,7 @@
 
     <!-- Cadastrar empresa -->
     <div id="painelCadastro" class="hidden">
-      <h1 class="text-lg font-bold text-slate-900 mb-1">Cadastrar empresa</h1>
+      <h1 class="text-lg font-bold text-[#111111] mb-1">Cadastrar empresa</h1>
       <p class="text-sm text-slate-500 mb-4">Enviamos o link de acesso por email assim que criar.</p>
       <form id="formCadastroPublico" class="space-y-3">
         <div>
@@ -58,7 +58,7 @@
             <p class="text-xs text-slate-400 mt-1">Peça esse código pra quem administra a empresa matriz — é o mesmo código de acesso dela.</p>
           </div>
         </details>
-        <button type="submit" class="w-full bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Cadastrar</button>
+        <button type="submit" class="w-full bg-[#1E3A2F] text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#16281F]">Cadastrar</button>
       </form>
       <p id="erroCadastro" class="hidden mt-3 text-sm text-red-600"></p>
       <p id="sucessoCadastro" class="hidden mt-3 text-sm text-emerald-700"></p>
@@ -73,7 +73,7 @@
   <!-- Header -->
   <header class="flex items-center justify-between mb-6">
     <div>
-      <h1 id="empresaNome" class="text-2xl font-bold text-slate-900">Carregando...</h1>
+      <h1 id="empresaNome" class="text-2xl font-bold text-[#111111]">Carregando...</h1>
       <p class="text-sm text-slate-500">Controle de gastos e receitas — <span id="empresaSlug"></span></p>
       <div class="relative mt-1">
         <button id="botaoSeletorEmpresa" type="button" class="hidden text-sm border rounded-lg px-2 py-1 bg-white hover:bg-slate-50">Empresas ▾</button>
@@ -119,7 +119,7 @@
           <option value="confirmado">Confirmado</option>
           <option value="previsto">Previsto</option>
         </select>
-        <button type="submit" class="col-span-1 bg-slate-800 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-900">Adicionar</button>
+        <button type="submit" class="col-span-1 bg-[#1E3A2F] text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#16281F]">Adicionar</button>
       </form>
     </div>
 
@@ -196,7 +196,7 @@
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <p class="text-xs text-slate-500 mb-1">Saldo no período</p>
-        <p id="totalSaldo" class="text-2xl font-bold text-slate-900">—</p>
+        <p id="totalSaldo" class="text-2xl font-bold text-[#111111]">—</p>
       </div>
     </div>
 
@@ -231,7 +231,7 @@
             <option value="receita">Receita</option>
             <option value="despesa">Despesa</option>
           </select>
-          <button type="submit" class="bg-slate-800 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-slate-900">+</button>
+          <button type="submit" class="bg-[#1E3A2F] text-white rounded-lg px-3 py-1.5 text-sm hover:bg-[#16281F]">+</button>
         </form>
         <ul id="listaCategorias" class="space-y-1 text-sm"></ul>
       </div>
@@ -246,7 +246,7 @@
             <option value="cartao">Cartão</option>
           </select>
           <input name="saldo_inicial" type="number" step="0.01" placeholder="Saldo inicial" class="w-28 border rounded-lg px-2 py-1.5 text-sm">
-          <button type="submit" class="bg-slate-800 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-slate-900">+</button>
+          <button type="submit" class="bg-[#1E3A2F] text-white rounded-lg px-3 py-1.5 text-sm hover:bg-[#16281F]">+</button>
         </form>
         <ul id="listaContas" class="space-y-1 text-sm"></ul>
       </div>

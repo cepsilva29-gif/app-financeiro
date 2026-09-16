@@ -74,6 +74,10 @@ owner. Keep new docs and UI copy in Portuguese too.
   to an existing matriz *without* an admin running `11-onboarding`. Security-load-bearing detail:
   it's the matriz's real `access_token`, not its (public, guessable) slug — see "Public
   self-service signup" below for why that distinction is the whole point.
+- **Color palette changed to "Gestão de Patrimônio / Alta Renda"** (2026-09-15, same day) — user
+  explicitly requested a luxury wealth-management look with 4 exact hex values, replacing the
+  earlier professional navy (slate-800/900) theme from the same day. See "Color palette" under
+  Frontend below.
 
 ## Architecture
 
@@ -493,6 +497,30 @@ back down to one selection restored the ordinary single-empresa view (form visib
 coordinate-based click meant for the "Resumo" tab landed on a checkbox underneath it instead
 (unchecked a filial) — confirms the "close the panel first" testing note above; the page's own
 click-outside-closes-panel handling was not itself at fault.
+
+### Color palette
+
+Changed 2026-09-15 from the earlier professional navy theme (slate-800/900) to a luxury
+wealth-management palette, on explicit user request with 4 exact hex values — applied via Tailwind
+arbitrary-value classes (`bg-[#...]`, `text-[#...]`) since none of these map to a stock Tailwind
+color:
+- **Primary** (`#1E3A2F`, dark olive green) — every primary action button (`Entrar`, `Cadastrar`,
+  `Adicionar`, the categoria/conta `+` buttons), `hover:bg-[#16281F]` (a manually darkened shade,
+  not a Tailwind-generated one, since arbitrary hex values have no built-in hover scale).
+- **Secondary/accent** (`#D4AF37`, champagne gold) — used *only* for the active tab's bottom
+  border in `.tab-btn.active` (see the `<style>` block), matching the user's own framing ("usado
+  cirurgicamente em detalhes") — deliberately not used anywhere else (no gold buttons/backgrounds).
+- **Background** (`#FDFBF7`, soft sand) — `<body>`.
+- **Main text** (`#111111`, charcoal) — `<body>` text color plus every heading (`text-slate-900`
+  was replaced with this everywhere it appeared).
+- **Deliberately left unchanged**: secondary/muted text and borders (`text-slate-500`/`400`,
+  `border-slate-200`/`100`) and the semantic receita/despesa colors (`emerald`/`red` for
+  income/expense badges and totals) — the user's request specified only these 4 roles, and
+  green/red for receita/despesa is a separate semantic convention, not part of the brand palette.
+- Verified by rendering the gate screen locally (`python -m http.server` + browser screenshot):
+  sand background, olive buttons/heading, charcoal text all confirmed. The authenticated app view
+  (`#app`) reuses the exact same Tailwind classes verified on the gate screen, so it wasn't
+  re-screenshotted individually.
 
 ### Auth (Fase 4 — done)
 
