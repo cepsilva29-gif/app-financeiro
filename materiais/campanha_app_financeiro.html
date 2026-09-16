@@ -1,0 +1,298 @@
+<title>app_financeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root{
+    --sand:#FDFBF7; --surface:#FFFFFF; --ink:#111111; --ink-muted:#6B6355;
+    --olive:#1E3A2F; --olive-deep:#14251C; --gold:#D4AF37; --border:#E8E1D3;
+    --receita:#0F7A50; --despesa:#B4423A; --accent-strong:var(--olive);
+    --font-display:"Fraunces", Georgia, "Times New Roman", serif;
+    --font-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono:"IBM Plex Mono", ui-monospace, "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --sand:#14150F; --surface:#1D1F17; --ink:#F4EFE3; --ink-muted:#A79F8C;
+      --olive:#3E6B52; --olive-deep:#4C7B60; --gold:#E4C158; --border:#2B2D22;
+      --receita:#3FAE81; --despesa:#E17A72; --accent-strong:var(--gold);
+    }
+  }
+  :root[data-theme="dark"]{
+    --sand:#14150F; --surface:#1D1F17; --ink:#F4EFE3; --ink-muted:#A79F8C;
+    --olive:#3E6B52; --olive-deep:#4C7B60; --gold:#E4C158; --border:#2B2D22;
+    --receita:#3FAE81; --despesa:#E17A72; --accent-strong:var(--gold);
+  }
+
+  *{ box-sizing:border-box; }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; } }
+
+  body{ margin:0; background:var(--sand); color:var(--ink); font-family:var(--font-body); padding-inline:0; line-height:1.6; }
+  h1,h2,h3{ font-family:var(--font-display); text-wrap:balance; font-weight:600; margin:0; }
+  p{ margin:0; }
+  a{ color:inherit; }
+  .wrap{ max-width:1120px; margin:0 auto; padding-inline:24px; }
+  section{ padding-block:64px; }
+  @media (max-width:640px){ section{ padding-block:44px; } }
+
+  /* ---------- Nav ---------- */
+  .nav{ display:flex; align-items:center; justify-content:space-between; padding-block:20px; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{ width:32px; height:32px; border-radius:8px; background:var(--olive); display:flex; align-items:center; justify-content:center; flex:none; }
+  .brand-mark svg{ width:16px; height:16px; }
+  .brand-name{ font-family:var(--font-display); font-weight:600; font-size:1.05rem; }
+  .nav a.cta-link{ font-size:.88rem; font-weight:600; text-decoration:none; border-bottom:1px solid var(--gold); padding-bottom:2px; }
+
+  /* ---------- Hero (inverted band) ---------- */
+  .hero{ background:var(--olive); color:#FBF7EC; }
+  .hero-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center; padding-block:56px 72px; }
+  .hero-grid > *{ min-width:0; }
+  @media (max-width:900px){ .hero-grid{ grid-template-columns:1fr; padding-block:36px 48px; } }
+  .kicker{ font-size:.75rem; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); font-weight:600; margin:0 0 18px; }
+  .hero h1{ font-size:clamp(2.2rem, 4.6vw, 3.4rem); line-height:1.08; margin:0 0 22px; color:#FBF7EC; animation:rise .7s ease-out both; }
+  .hero .sub{ font-size:1.08rem; color:#D9D3C2; max-width:46ch; margin:0 0 32px; animation:rise .7s ease-out .1s both; }
+  .cta-row{ display:flex; flex-wrap:wrap; gap:16px; align-items:center; animation:rise .7s ease-out .2s both; }
+  .btn{ display:inline-flex; align-items:center; gap:8px; font-weight:700; font-size:.95rem; padding:13px 24px; border-radius:9px; text-decoration:none; transition:transform .15s, box-shadow .15s; }
+  .btn:hover{ transform:translateY(-1px); }
+  .btn-gold{ background:var(--gold); color:#1B1200; }
+  .btn-gold:hover{ box-shadow:0 8px 22px -8px color-mix(in srgb, var(--gold) 70%, transparent); }
+  .btn-ghost{ color:#FBF7EC; font-weight:600; font-size:.92rem; border-bottom:1px solid rgba(251,247,236,.4); padding:2px 0; border-radius:0; }
+
+  @keyframes rise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+
+  /* ---------- Hero dashboard mockup ---------- */
+  .hero-mock{ background:rgba(251,247,236,.06); border:1px solid rgba(251,247,236,.16); border-radius:16px; padding:20px; animation:rise .7s ease-out .15s both; }
+  .hm-kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+  .hm-kpi{ background:rgba(251,247,236,.05); border:1px solid rgba(251,247,236,.14); border-radius:9px; padding:10px; }
+  .hm-kpi .l{ font-size:.6rem; letter-spacing:.06em; text-transform:uppercase; color:#C9C2AD; }
+  .hm-kpi .v{ font-family:var(--font-mono); font-size:.88rem; margin-top:3px; color:#FBF7EC; font-variant-numeric:tabular-nums; }
+  .hm-body{ display:grid; grid-template-columns:auto 1fr; gap:20px; align-items:center; }
+  .donut{ width:88px; height:88px; border-radius:50%; flex:none;
+    background:conic-gradient(var(--receita) 0 62%, var(--despesa) 62% 100%); position:relative; }
+  .donut::after{ content:""; position:absolute; inset:16px; border-radius:50%; background:var(--olive); }
+  .bars{ display:flex; align-items:flex-end; gap:8px; height:88px; }
+  .bars i{ display:block; width:14px; border-radius:3px 3px 0 0; background:var(--gold); opacity:.9; }
+
+  /* ---------- Sections on sand ---------- */
+  .eyebrow{ font-size:.75rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-strong); font-weight:700; margin:0 0 10px; }
+  .section-title{ font-size:clamp(1.5rem,2.6vw,2.1rem); max-width:24ch; margin:0 0 14px; }
+  .section-sub{ color:var(--ink-muted); max-width:56ch; font-size:1.02rem; margin:0 0 40px; }
+
+  /* Before / after */
+  .contrast{ display:grid; grid-template-columns:1fr 1fr; gap:20px; min-width:0; }
+  @media (max-width:760px){ .contrast{ grid-template-columns:1fr; } }
+  .panel{ border-radius:14px; padding:26px 24px; border:1px solid var(--border); min-width:0; }
+  .panel.before{ background:var(--surface); }
+  .panel.after{ background:var(--surface); border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+  .panel h3{ font-family:var(--font-body); font-size:.95rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; margin:0 0 16px; color:var(--ink-muted); }
+  .panel.after h3{ color:var(--accent-strong); }
+  .panel ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:13px; min-width:0; }
+  .panel li{ display:flex; gap:10px; font-size:.95rem; min-width:0; }
+  .panel li .mk{ flex:none; font-weight:700; }
+  .panel li span:last-child{ min-width:0; }
+  .panel.before li .mk{ color:var(--despesa); }
+  .panel.after li .mk{ color:var(--receita); }
+
+  /* Features grid */
+  .features{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .features > *{ min-width:0; }
+  @media (max-width:860px){ .features{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:560px){ .features{ grid-template-columns:1fr; } }
+  .feature{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px 20px; transition:border-color .18s, transform .18s; }
+  .feature:hover{ border-color:var(--gold); transform:translateY(-2px); }
+  .feature .ico{ width:36px; height:36px; border-radius:9px; background:color-mix(in srgb, var(--olive) 12%, transparent); display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
+  .feature .ico svg{ width:18px; height:18px; stroke:var(--accent-strong); }
+  .feature h3{ font-family:var(--font-body); font-size:1.02rem; font-weight:700; margin:0 0 6px; }
+  .feature p{ color:var(--ink-muted); font-size:.92rem; }
+
+  /* How it works */
+  .steps3{ display:grid; grid-template-columns:repeat(3,1fr); gap:24px; counter-reset:step; }
+  .steps3 > *{ min-width:0; }
+  @media (max-width:760px){ .steps3{ grid-template-columns:1fr; } }
+  .step3{ position:relative; padding-top:8px; }
+  .step3 .n{ font-family:var(--font-mono); font-size:.8rem; color:var(--accent-strong); }
+  .step3 h3{ font-size:1.08rem; margin:8px 0 8px; font-family:var(--font-body); font-weight:700; }
+  .step3 p{ color:var(--ink-muted); font-size:.93rem; max-width:34ch; }
+
+  /* Closing CTA band */
+  .cta-band{ background:var(--olive); color:#FBF7EC; text-align:center; }
+  .cta-band h2{ font-size:clamp(1.7rem,3.4vw,2.3rem); color:#FBF7EC; margin:0 0 12px; }
+  .cta-band p{ color:#D9D3C2; margin:0 0 28px; }
+  .cta-band .btn-gold{ }
+
+  footer{ padding-block:32px; border-top:1px solid var(--border); }
+  .foot-row{ display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between; align-items:center; color:var(--ink-muted); font-size:.85rem; }
+  footer a{ color:var(--ink-muted); text-decoration:underline; }
+
+  /* ---------- Video modal ---------- */
+  .btn-play{ display:inline-flex; align-items:center; gap:8px; background:none; border:none; cursor:pointer; font-family:var(--font-body); }
+  .btn-play .play-ico{ width:26px; height:26px; border-radius:50%; background:rgba(251,247,236,.14); border:1px solid rgba(251,247,236,.4); display:flex; align-items:center; justify-content:center; flex:none; }
+  .btn-play .play-ico svg{ width:9px; height:9px; margin-left:1px; }
+  .modal-overlay{ position:fixed; inset:0; background:rgba(10,10,8,.78); display:flex; align-items:center; justify-content:center; padding:24px; z-index:50; }
+  .modal-overlay[hidden]{ display:none; }
+  .modal-box{ position:relative; width:100%; max-width:880px; background:var(--surface); border-radius:14px; border:1px solid var(--border); padding:12px; }
+  .modal-box img{ display:block; width:100%; border-radius:8px; }
+  .modal-close{ position:absolute; top:-14px; right:-14px; width:32px; height:32px; border-radius:50%; background:var(--gold); border:none; color:#1B1200; font-size:1.1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .modal-caption{ padding:12px 8px 4px; font-size:.85rem; color:var(--ink-muted); text-align:center; }
+</style>
+
+<div class="hero">
+  <div class="wrap">
+    <nav class="nav">
+      <div class="brand">
+        <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V10M10 19V5M16 19V13M22 19V8" stroke="#FDFBF7" stroke-width="2.2" stroke-linecap="round"/></svg></div>
+        <span class="brand-name" style="color:#FBF7EC">app_financeiro</span>
+      </div>
+      <a class="cta-link" style="color:#FBF7EC" href="https://financeiro.engenhariadedadosn8n.shop/" target="_blank" rel="noopener">Já uso o sistema →</a>
+    </nav>
+
+    <div class="hero-grid">
+      <div>
+        <p class="kicker">Gestão financeira multiempresa</p>
+        <h1>Cada real do seu negócio,<br>sob controle absoluto.</h1>
+        <p class="sub">app_financeiro organiza receitas, despesas e o financeiro de todas as suas empresas num painel só — sem planilha, sem senha pra decorar, sem depender de ninguém pra ver os números.</p>
+        <div class="cta-row">
+          <a class="btn btn-gold" href="https://wa.me/5521920042158?text=Ol%C3%A1!%20Quero%20conhecer%20o%20app_financeiro" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#1B1200"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2Zm5.2 14.2c-.22.62-1.28 1.19-1.77 1.24-.45.05-1.02.07-1.65-.1-.38-.11-.87-.28-1.5-.55-2.64-1.14-4.36-3.8-4.5-3.98-.13-.18-1.08-1.44-1.08-2.74 0-1.3.68-1.94.93-2.2.24-.27.53-.33.7-.33.18 0 .35 0 .5.01.16.01.38-.06.6.46.22.53.75 1.83.82 1.97.07.13.11.29.02.47-.09.18-.13.29-.27.44-.13.16-.28.35-.4.47-.13.13-.27.27-.12.53.16.27.7 1.15 1.5 1.86 1.04.92 1.91 1.21 2.18 1.35.27.13.42.11.58-.07.16-.18.68-.79.86-1.06.18-.27.36-.22.6-.13.25.09 1.58.75 1.85.88.27.13.45.2.51.31.07.11.07.62-.15 1.24Z"/></svg>
+            Falar no WhatsApp
+          </a>
+          <button type="button" class="btn btn-ghost btn-play" id="btnAbrirVideo">
+            <span class="play-ico"><svg viewBox="0 0 10 10" fill="#FBF7EC"><path d="M1 0.5 9 5 1 9.5Z"/></svg></span>
+            Ver como funciona
+          </button>
+        </div>
+      </div>
+
+      <div class="hero-mock" aria-hidden="true">
+        <div class="hm-kpis">
+          <div class="hm-kpi"><div class="l">Receitas</div><div class="v">R$ 18.400</div></div>
+          <div class="hm-kpi"><div class="l">Despesas</div><div class="v">R$ 11.250</div></div>
+          <div class="hm-kpi"><div class="l">Saldo</div><div class="v">R$ 7.150</div></div>
+        </div>
+        <div class="hm-body">
+          <div class="donut"></div>
+          <div class="bars">
+            <i style="height:40%"></i><i style="height:70%"></i><i style="height:30%"></i><i style="height:85%"></i><i style="height:55%"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">O problema</p>
+    <h2 class="section-title">Da planilha perdida ao número certo</h2>
+    <p class="section-sub">Se sua resposta pra "quanto sobrou esse mês" é "deixa eu ver depois", o problema não é falta de esforço — é falta de um lugar único pra isso morar.</p>
+    <div class="contrast">
+      <div class="panel before">
+        <h3>Do jeito antigo</h3>
+        <ul>
+          <li><span class="mk">–</span><span>Planilha que só uma pessoa sabe mexer direito</span></li>
+          <li><span class="mk">–</span><span>Saldo de caixa que ninguém confere no mesmo dia</span></li>
+          <li><span class="mk">–</span><span>Cada filial com seu próprio controle, sem visão do total</span></li>
+          <li><span class="mk">–</span><span>Senha anotada num papel do lado do computador</span></li>
+        </ul>
+      </div>
+      <div class="panel after">
+        <h3>Com o app_financeiro</h3>
+        <ul>
+          <li><span class="mk">✓</span><span>Um lançamento, trinta segundos, pronto</span></li>
+          <li><span class="mk">✓</span><span>Dashboard sempre atualizado, aberto quando quiser</span></li>
+          <li><span class="mk">✓</span><span>Matriz enxergando todas as filiais somadas, ou uma por vez</span></li>
+          <li><span class="mk">✓</span><span>Um código de acesso — revogável a qualquer momento</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">O que vem incluído</p>
+    <h2 class="section-title">Tudo que o financeiro do dia a dia precisa</h2>
+    <p class="section-sub">Sem módulos extras pra vender depois — o que sua empresa usa já vem no mesmo lugar.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 19V10M10 19V5M16 19V13M22 19V8"/></svg></div>
+        <h3>Dashboard em tempo real</h3>
+        <p>KPIs e gráficos de receita, despesa e saldo por período — sempre com o número do dia.</p>
+      </div>
+      <div class="feature">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg></div>
+        <h3>Matriz e filiais</h3>
+        <p>Veja uma empresa por vez ou todas as filiais somadas num único painel, sem trocar de login.</p>
+      </div>
+      <div class="feature">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3>Acesso por código</h3>
+        <p>Nada de senha pra decorar ou esquecer — um código único por empresa, revogável na hora.</p>
+      </div>
+      <div class="feature">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></div>
+        <h3>Categorias &amp; contas</h3>
+        <p>Organize receitas e despesas do seu jeito — caixa, banco ou cartão, categoria por categoria.</p>
+      </div>
+      <div class="feature">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M21 8V5a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3M14 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/></svg></div>
+        <h3>Onboarding automático</h3>
+        <p>Cadastro direto no navegador — o acesso chega por e-mail na hora, sem ninguém precisar liberar.</p>
+      </div>
+      <div class="feature">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/></svg></div>
+        <h3>Dados isolados por empresa</h3>
+        <p>Cada empresa enxerga só os próprios lançamentos — sem exceção, sem vazamento entre contas.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0" id="como-funciona">
+  <div class="wrap">
+    <p class="eyebrow">Como funciona</p>
+    <h2 class="section-title">Do zero ao primeiro lançamento em três passos</h2>
+    <p class="section-sub" style="margin-bottom:44px">Nenhum deles depende de ninguém além de você.</p>
+    <div class="steps3">
+      <div class="step3"><p class="n">01</p><h3>Cadastre sua empresa</h3><p>Nome, endereço do painel e e-mail — direto no navegador, sem instalar nada.</p></div>
+      <div class="step3"><p class="n">02</p><h3>Receba o acesso</h3><p>Um e-mail com o link já pronto chega na hora — o código fica salvo no seu navegador.</p></div>
+      <div class="step3"><p class="n">03</p><h3>Comece a lançar</h3><p>Registre a primeira receita ou despesa e veja o Dashboard atualizar no mesmo dia.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <div class="wrap" style="text-align:center">
+    <h2>Pronto pra ver o financeiro do seu jeito?</h2>
+    <p>Leva menos tempo que preencher a planilha de hoje.</p>
+    <a class="btn btn-gold" href="https://wa.me/5521920042158?text=Ol%C3%A1!%20Quero%20conhecer%20o%20app_financeiro" target="_blank" rel="noopener">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="#1B1200"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2Zm5.2 14.2c-.22.62-1.28 1.19-1.77 1.24-.45.05-1.02.07-1.65-.1-.38-.11-.87-.28-1.5-.55-2.64-1.14-4.36-3.8-4.5-3.98-.13-.18-1.08-1.44-1.08-2.74 0-1.3.68-1.94.93-2.2.24-.27.53-.33.7-.33.18 0 .35 0 .5.01.16.01.38-.06.6.46.22.53.75 1.83.82 1.97.07.13.11.29.02.47-.09.18-.13.29-.27.44-.13.16-.28.35-.4.47-.13.13-.27.27-.12.53.16.27.7 1.15 1.5 1.86 1.04.92 1.91 1.21 2.18 1.35.27.13.42.11.58-.07.16-.18.68-.79.86-1.06.18-.27.36-.22.6-.13.25.09 1.58.75 1.85.88.27.13.45.2.51.31.07.11.07.62-.15 1.24Z"/></svg>
+      Falar no WhatsApp
+    </a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-row">
+    <span>app_financeiro — controle de gastos e receitas para pequenas empresas brasileiras.</span>
+    <span>Já é cliente? <a href="https://claude.ai/artifact/3nLoBLUP1gsho2849htcwu" target="_blank" rel="noopener">Veja o manual de uso</a></span>
+  </div>
+</footer>
+
+<div class="modal-overlay" id="modalVideo" hidden>
+  <div class="modal-box">
+    <button type="button" class="modal-close" id="btnFecharVideo" aria-label="Fechar">×</button>
+    <img src="app_financeiro_situacao_real_limpo.gif" alt="Gravação real de uso do app_financeiro: lançando uma receita e uma despesa e conferindo o Dashboard">
+    <p class="modal-caption">Situação real: lançando uma venda e uma despesa, e conferindo o Dashboard na hora.</p>
+  </div>
+</div>
+
+<script>
+  const modal = document.getElementById('modalVideo');
+  const abrir = () => { modal.hidden = false; };
+  const fechar = () => { modal.hidden = true; };
+  document.getElementById('btnAbrirVideo').addEventListener('click', abrir);
+  document.getElementById('btnFecharVideo').addEventListener('click', fechar);
+  modal.addEventListener('click', (e) => { if (e.target === modal) fechar(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) fechar(); });
+</script>
