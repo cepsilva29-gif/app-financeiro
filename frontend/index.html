@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>app_financeiro</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
   .tab-btn.active { border-color: #D4AF37; color: #1E3A2F; font-weight: 600; }
@@ -171,7 +172,7 @@
     </div>
   </section>
 
-  <!-- ===================== TAB: RESUMO ===================== -->
+  <!-- ===================== TAB: DASHBOARD ===================== -->
   <section id="tab-resumo" class="tab-panel space-y-6">
     <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap gap-3 items-end">
       <div>
@@ -182,31 +183,54 @@
         <label class="block text-xs text-slate-500 mb-1">Até</label>
         <input id="resumoFim" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
       </div>
-      <button id="btnAtualizarResumo" class="bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 text-sm">Atualizar</button>
+      <button id="btnAtualizarResumo" class="bg-[#1E3A2F] text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-[#16281F]">Atualizar</button>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 mb-1">Receitas no período</p>
+    <!-- KPI tiles -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4 border-t-4 border-t-emerald-600">
+        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Receitas</p>
         <p id="totalReceitas" class="text-2xl font-bold text-emerald-700">—</p>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 mb-1">Despesas no período</p>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 border-t-4 border-t-red-600">
+        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Despesas</p>
         <p id="totalDespesas" class="text-2xl font-bold text-red-700">—</p>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs text-slate-500 mb-1">Saldo no período</p>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 border-t-4 border-t-[#1E3A2F]">
+        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Saldo</p>
         <p id="totalSaldo" class="text-2xl font-bold text-[#111111]">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 border-t-4 border-t-[#D4AF37]">
+        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Lançamentos</p>
+        <p id="totalLancamentos" class="text-2xl font-bold text-[#111111]">—</p>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4 md:col-span-2">
+        <h2 class="font-semibold mb-3">Receitas x Despesas</h2>
+        <div class="relative h-56">
+          <canvas id="chartReceitaDespesa"></canvas>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4 md:col-span-3">
+        <h2 class="font-semibold mb-3">Totais por categoria</h2>
+        <div class="relative h-56">
+          <canvas id="chartCategorias"></canvas>
+        </div>
       </div>
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 p-4">
       <h2 class="font-semibold mb-3">Saldo por conta</h2>
-      <div id="saldoPorConta" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+      <div class="relative h-48">
+        <canvas id="chartSaldoConta"></canvas>
+      </div>
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 p-4">
-      <h2 class="font-semibold mb-3">Totais por categoria</h2>
+      <h2 class="font-semibold mb-3">Detalhe por categoria</h2>
       <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-slate-500 border-b border-slate-200">
@@ -654,8 +678,15 @@ document.getElementById("formConta").addEventListener("submit", async (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Resumo
+// Dashboard (aba "resumo" internamente — ver CLAUDE.md)
 // ---------------------------------------------------------------------------
+const CORES = { receita: "#059669", despesa: "#dc2626", primaria: "#1E3A2F", dourado: "#D4AF37" };
+let graficos = { receitaDespesa: null, categorias: null, saldoConta: null };
+
+function destruirGrafico(chave) {
+  if (graficos[chave]) { graficos[chave].destroy(); graficos[chave] = null; }
+}
+
 async function carregarResumo() {
   const query = {};
   const inicio = document.getElementById("resumoInicio").value;
@@ -669,6 +700,7 @@ async function carregarResumo() {
     let totais = { receitas: 0, despesas: 0, saldo: 0 };
     let saldoPorConta = [];
     let porCategoria = [];
+    let totalLancamentos = 0;
 
     for (const id of state.empresasSelecionadasIds) {
       const resumo = await api("resumo-periodo", { query, empresaId: id });
@@ -678,18 +710,15 @@ async function carregarResumo() {
       const prefixo = multi ? `${empresaSelecionadaNome(id)} — ` : "";
       saldoPorConta = saldoPorConta.concat(resumo.saldo_por_conta.map(c => ({ ...c, nome: prefixo + c.nome })));
       porCategoria = porCategoria.concat(resumo.por_categoria.map(c => ({ ...c, _empresaId: id })));
+
+      const listagem = await api("listar-transacoes", { query, empresaId: id });
+      totalLancamentos += listagem.transacoes.length;
     }
 
     document.getElementById("totalReceitas").textContent = formatarMoeda(totais.receitas);
     document.getElementById("totalDespesas").textContent = formatarMoeda(totais.despesas);
     document.getElementById("totalSaldo").textContent = formatarMoeda(totais.saldo);
-
-    document.getElementById("saldoPorConta").innerHTML = saldoPorConta.map(c => `
-      <div class="border border-slate-200 rounded-lg p-3">
-        <p class="text-xs text-slate-500">${c.nome}</p>
-        <p class="text-lg font-semibold">${formatarMoeda(c.saldo)}</p>
-      </div>
-    `).join("") || '<p class="text-slate-400 text-sm">Nenhuma conta cadastrada.</p>';
+    document.getElementById("totalLancamentos").textContent = totalLancamentos;
 
     document.getElementById("tabelaCategorias").innerHTML = porCategoria.map(c => `
       <tr class="border-b border-slate-100">
@@ -698,6 +727,58 @@ async function carregarResumo() {
         <td class="py-2 pr-2 text-right text-red-700">${formatarMoeda(c.despesa)}</td>
       </tr>
     `).join("") || '<tr><td colspan="3" class="text-slate-400 py-3">Nenhum lançamento no período.</td></tr>';
+
+    // Donut: Receitas x Despesas
+    destruirGrafico("receitaDespesa");
+    graficos.receitaDespesa = new Chart(document.getElementById("chartReceitaDespesa"), {
+      type: "doughnut",
+      data: {
+        labels: ["Receitas", "Despesas"],
+        datasets: [{ data: [totais.receitas, totais.despesas], backgroundColor: [CORES.receita, CORES.despesa], borderWidth: 0 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } } },
+      },
+    });
+
+    // Barras agrupadas: totais por categoria
+    destruirGrafico("categorias");
+    const nomesCategorias = porCategoria.map(c => `${multi ? empresaSelecionadaNome(c._empresaId) + " — " : ""}${nomeCategoria(c.categoria_id)}`);
+    graficos.categorias = new Chart(document.getElementById("chartCategorias"), {
+      type: "bar",
+      data: {
+        labels: nomesCategorias,
+        datasets: [
+          { label: "Receitas", data: porCategoria.map(c => c.receita), backgroundColor: CORES.receita },
+          { label: "Despesas", data: porCategoria.map(c => c.despesa), backgroundColor: CORES.despesa },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+
+    // Barras horizontais: saldo por conta
+    destruirGrafico("saldoConta");
+    graficos.saldoConta = new Chart(document.getElementById("chartSaldoConta"), {
+      type: "bar",
+      data: {
+        labels: saldoPorConta.map(c => c.nome),
+        datasets: [{
+          label: "Saldo",
+          data: saldoPorConta.map(c => c.saldo),
+          backgroundColor: saldoPorConta.map(c => c.saldo < 0 ? CORES.despesa : CORES.primaria),
+        }],
+      },
+      options: {
+        indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } },
+      },
+    });
   } catch (e) {
     mostrarErro(e.message);
   }

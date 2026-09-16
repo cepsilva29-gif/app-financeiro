@@ -78,6 +78,10 @@ owner. Keep new docs and UI copy in Portuguese too.
   explicitly requested a luxury wealth-management look with 4 exact hex values, replacing the
   earlier professional navy (slate-800/900) theme from the same day. See "Color palette" under
   Frontend below.
+- **"Resumo" tab renamed to "Dashboard" and redesigned BI-style** (2026-09-15, same day) — visible
+  label only (internal `data-tab`/`id`/function/endpoint names all still say "resumo", see below),
+  then rebuilt as KPI tiles + Chart.js charts (donut, grouped bar, horizontal bar) instead of plain
+  numbers/lists, on explicit user request ("como power bi"). See "Dashboard" under Frontend below.
 
 ## Architecture
 
@@ -497,6 +501,48 @@ back down to one selection restored the ordinary single-empresa view (form visib
 coordinate-based click meant for the "Resumo" tab landed on a checkbox underneath it instead
 (unchecked a filial) — confirms the "close the panel first" testing note above; the page's own
 click-outside-closes-panel handling was not itself at fault.
+
+### Dashboard (formerly "Resumo" tab)
+
+Renamed and redesigned 2026-09-15 on explicit user request ("como power bi" — style it like a BI
+tool), with an explicit "show me before production" ask honored by building a standalone,
+data-free mock (`preview_dashboard.html`, scratchpad-only, never committed) rendered via
+Claude-in-Chrome screenshots before touching the real file or deploying.
+
+- **Only the visible label changed to "Dashboard"** — `data-tab="resumo"`, `id="tab-resumo"`,
+  `carregarResumo()`, `resumoInicio`/`resumoFim`/`btnAtualizarResumo` element ids, and the backend
+  `resumo-periodo` endpoint name are all still "resumo" internally, deliberately left alone (no
+  reason to touch working, unrelated-to-display internal naming for a label-only rename).
+- **Chart.js** (`chart.umd.min.js`, UMD build) loaded from cdnjs, **exact path matters**:
+  `https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js` — note the capital
+  `Chart.js` in the path (lowercase `chart.js` 404s on cdnjs) and pin `4.4.0` specifically (`4.4.4`
+  doesn't exist on cdnjs and 404s too) — confirmed by testing both wrong variants failing before
+  landing on this one.
+- **Layout**: 4 KPI tiles (Receitas, Despesas, Saldo, Lançamentos — each a white card with a
+  colored top border: emerald/red/olive/gold) → a donut (Receitas x Despesas) + grouped bar chart
+  (Receitas/Despesas per categoria) side by side → a horizontal bar chart (saldo por conta, bar
+  turns red instead of olive when a conta's saldo is negative) → the original "Totais por
+  categoria" table kept below the charts as the detail view (typical BI pattern: visual summary on
+  top, drillable table underneath) — the table itself is unchanged from before this redesign.
+- **`totalLancamentos` KPI is a new data need**: `resumo-periodo` doesn't return a transaction
+  count, so `carregarResumo()` now also calls `listar-transacoes` (same period query) per selected
+  empresa and sums `.length` — one extra API call per empresa in the loop, same "call per empresa,
+  concatenate" pattern already used by `carregarCategorias()`/`carregarContas()`/
+  `carregarTransacoes()`.
+- **Chart instances are tracked in a module-level `graficos` object** (`{receitaDespesa,
+  categorias, saldoConta}`) and explicitly `.destroy()`ed before every re-render in
+  `carregarResumo()` (via `destruirGrafico()`) — Chart.js throws if you construct a new `Chart` on
+  a `<canvas>` that already has one attached, which happens every time this tab is revisited or
+  "Atualizar"/a filter change re-runs `carregarResumo()`.
+- **Colors reuse the existing palette + semantic conventions**, not new ones: `CORES.receita`
+  (`#059669`, matches the existing `emerald` badges) and `CORES.despesa` (`#dc2626`, matches
+  existing `red` badges) for anything receita/despesa-coded, `CORES.primaria` (`#1E3A2F`) for
+  neutral/positive bars (saldo por conta), `CORES.dourado` (`#D4AF37`) only on the Lançamentos KPI
+  tile's top border — consistent with the "gold used surgically" rule from the color palette
+  change above.
+- Not yet verified against live production data (only screenshotted against the standalone mock
+  with fictitious numbers) — verify the real charts once deployed with an empresa that has actual
+  lançamentos.
 
 ### Color palette
 
