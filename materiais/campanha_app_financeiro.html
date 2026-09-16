@@ -131,7 +131,7 @@
   .modal-overlay{ position:fixed; inset:0; background:rgba(10,10,8,.78); display:flex; align-items:center; justify-content:center; padding:24px; z-index:50; }
   .modal-overlay[hidden]{ display:none; }
   .modal-box{ position:relative; width:100%; max-width:880px; background:var(--surface); border-radius:14px; border:1px solid var(--border); padding:12px; }
-  .modal-box img{ display:block; width:100%; border-radius:8px; }
+  .modal-box img, .modal-box video{ display:block; width:100%; border-radius:8px; }
   .modal-close{ position:absolute; top:-14px; right:-14px; width:32px; height:32px; border-radius:50%; background:var(--gold); border:none; color:#1B1200; font-size:1.1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .modal-caption{ padding:12px 8px 4px; font-size:.85rem; color:var(--ink-muted); text-align:center; }
 </style>
@@ -282,7 +282,9 @@
 <div class="modal-overlay" id="modalVideo" hidden>
   <div class="modal-box">
     <button type="button" class="modal-close" id="btnFecharVideo" aria-label="Fechar">×</button>
-    <img src="app_financeiro_situacao_real_limpo.gif" alt="Gravação real de uso do app_financeiro: lançando uma receita e uma despesa e conferindo o Dashboard">
+    <video src="app_financeiro_situacao_real_limpo.mp4" controls autoplay loop muted playsinline>
+      <img src="app_financeiro_situacao_real_limpo.gif" alt="Gravação real de uso do app_financeiro: lançando uma receita e uma despesa e conferindo o Dashboard">
+    </video>
     <p class="modal-caption">Situação real: lançando uma venda e uma despesa, e conferindo o Dashboard na hora.</p>
   </div>
 </div>
