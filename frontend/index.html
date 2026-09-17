@@ -8,78 +8,80 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .tab-btn.active { border-color: #D4AF37; color: #1E3A2F; font-weight: 600; }
+  .tab-btn.active { border-color: #00B8A9; color: #EAF6F5; font-weight: 600; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
-  select, input { color-scheme: light; }
+  select, input { color-scheme: dark; background: #071C24; color: #EAF6F5; border-color: #1B3D48; }
+  input::placeholder { color: #5C7D84; }
+  .marca-icone { filter: drop-shadow(0 0 6px rgba(0,184,169,0.65)); }
 </style>
 </head>
-<body class="bg-[#FDFBF7] text-[#111111] min-h-screen">
+<body class="bg-[#071C24] text-[#EAF6F5] min-h-screen">
 
 <!-- ===================== GATE: código de acesso ===================== -->
 <div id="appGate" class="min-h-screen flex items-center justify-center px-4">
-  <div class="bg-white rounded-xl border border-slate-200 p-6 w-full max-w-sm">
+  <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-6 w-full max-w-sm">
 
     <!-- Entrar -->
     <div id="painelEntrar">
-      <div class="flex items-center gap-2 mb-1">
-        <svg width="24" height="24" viewBox="0 0 48 48" class="flex-none">
-          <rect x="4" y="28" width="9" height="16" rx="2.5" fill="#1E3A2F"/>
-          <rect x="17" y="18" width="9" height="26" rx="2.5" fill="#1E3A2F"/>
-          <rect x="30" y="8" width="9" height="36" rx="2.5" fill="#1E3A2F"/>
-          <circle cx="34.5" cy="6" r="4.5" fill="#D4AF37"/>
+      <div class="flex items-center gap-2.5 mb-1">
+        <svg width="30" height="30" viewBox="0 0 48 48" class="flex-none marca-icone">
+          <rect x="4" y="28" width="9" height="16" rx="2.5" fill="#00B8A9"/>
+          <rect x="17" y="18" width="9" height="26" rx="2.5" fill="#00B8A9"/>
+          <rect x="30" y="8" width="9" height="36" rx="2.5" fill="#00B8A9"/>
+          <circle cx="34.5" cy="6" r="4.5" fill="#EAF6F5"/>
         </svg>
-        <h1 class="text-lg font-bold text-[#111111]"><span class="text-slate-500 font-semibold">app_</span>financeiro</h1>
+        <h1 class="text-xl font-bold text-[#EAF6F5]"><span class="text-[#7FA3AA] font-semibold">app_</span>financeiro</h1>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Digite o código de acesso da sua empresa.</p>
+      <p class="text-sm text-[#7FA3AA] mb-4">Digite o código de acesso da sua empresa.</p>
       <form id="formGate" class="space-y-3">
         <input name="token" type="text" placeholder="fin_..." required autofocus
           class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
-        <button type="submit" class="w-full bg-[#1E3A2F] text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#16281F]">Entrar</button>
+        <button type="submit" class="w-full bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#00A396]">Entrar</button>
       </form>
-      <p id="erroGate" class="hidden mt-3 text-sm text-red-600"></p>
-      <button id="btnMostrarCadastro" class="mt-4 text-sm text-slate-500 underline">Ainda não tem cadastro? Criar conta da empresa</button>
+      <p id="erroGate" class="hidden mt-3 text-sm text-red-400"></p>
+      <button id="btnMostrarCadastro" class="mt-4 text-sm text-[#7FA3AA] underline">Ainda não tem cadastro? Criar conta da empresa</button>
     </div>
 
     <!-- Cadastrar empresa -->
     <div id="painelCadastro" class="hidden">
-      <div class="flex items-center gap-2 mb-1">
-        <svg width="24" height="24" viewBox="0 0 48 48" class="flex-none">
-          <rect x="4" y="28" width="9" height="16" rx="2.5" fill="#1E3A2F"/>
-          <rect x="17" y="18" width="9" height="26" rx="2.5" fill="#1E3A2F"/>
-          <rect x="30" y="8" width="9" height="36" rx="2.5" fill="#1E3A2F"/>
-          <circle cx="34.5" cy="6" r="4.5" fill="#D4AF37"/>
+      <div class="flex items-center gap-2.5 mb-1">
+        <svg width="30" height="30" viewBox="0 0 48 48" class="flex-none marca-icone">
+          <rect x="4" y="28" width="9" height="16" rx="2.5" fill="#00B8A9"/>
+          <rect x="17" y="18" width="9" height="26" rx="2.5" fill="#00B8A9"/>
+          <rect x="30" y="8" width="9" height="36" rx="2.5" fill="#00B8A9"/>
+          <circle cx="34.5" cy="6" r="4.5" fill="#EAF6F5"/>
         </svg>
-        <h1 class="text-lg font-bold text-[#111111]">Cadastrar empresa</h1>
+        <h1 class="text-xl font-bold text-[#EAF6F5]">Cadastrar empresa</h1>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Enviamos o link de acesso por email assim que criar.</p>
+      <p class="text-sm text-[#7FA3AA] mb-4">Enviamos o link de acesso por email assim que criar.</p>
       <form id="formCadastroPublico" class="space-y-3">
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Nome da empresa</label>
+          <label class="block text-xs text-[#7FA3AA] mb-1">Nome da empresa</label>
           <input name="nome" type="text" required class="w-full border rounded-lg px-3 py-2 text-sm">
         </div>
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Endereço do painel (slug)</label>
+          <label class="block text-xs text-[#7FA3AA] mb-1">Endereço do painel (slug)</label>
           <input name="slug" type="text" required pattern="[a-z0-9-]+"
             class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
         </div>
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Email</label>
+          <label class="block text-xs text-[#7FA3AA] mb-1">Email</label>
           <input name="email" type="email" required class="w-full border rounded-lg px-3 py-2 text-sm">
         </div>
         <details class="text-sm">
-          <summary class="text-slate-500 cursor-pointer">É filial de uma empresa que já usa o sistema?</summary>
+          <summary class="text-[#7FA3AA] cursor-pointer">É filial de uma empresa que já usa o sistema?</summary>
           <div class="mt-2">
-            <label class="block text-xs text-slate-500 mb-1">Token de acesso da matriz</label>
+            <label class="block text-xs text-[#7FA3AA] mb-1">Token de acesso da matriz</label>
             <input name="token_matriz" type="text" placeholder="fin_..." class="w-full border rounded-lg px-3 py-2 text-sm font-mono">
-            <p class="text-xs text-slate-400 mt-1">Peça esse código pra quem administra a empresa matriz — é o mesmo código de acesso dela.</p>
+            <p class="text-xs text-[#5C7D84] mt-1">Peça esse código pra quem administra a empresa matriz — é o mesmo código de acesso dela.</p>
           </div>
         </details>
-        <button type="submit" class="w-full bg-[#1E3A2F] text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#16281F]">Cadastrar</button>
+        <button type="submit" class="w-full bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#00A396]">Cadastrar</button>
       </form>
-      <p id="erroCadastro" class="hidden mt-3 text-sm text-red-600"></p>
-      <p id="sucessoCadastro" class="hidden mt-3 text-sm text-emerald-700"></p>
-      <button id="btnMostrarEntrar" class="mt-4 text-sm text-slate-500 underline">Já tem cadastro? Entrar</button>
+      <p id="erroCadastro" class="hidden mt-3 text-sm text-red-400"></p>
+      <p id="sucessoCadastro" class="hidden mt-3 text-sm text-emerald-400"></p>
+      <button id="btnMostrarEntrar" class="mt-4 text-sm text-[#7FA3AA] underline">Já tem cadastro? Entrar</button>
     </div>
 
   </div>
@@ -90,34 +92,34 @@
   <!-- Header -->
   <header class="flex items-center justify-between mb-6">
     <div>
-      <div class="flex items-center gap-2 mb-1">
-        <svg width="18" height="18" viewBox="0 0 48 48" class="flex-none">
-          <rect x="4" y="28" width="9" height="16" rx="2.5" fill="#1E3A2F"/>
-          <rect x="17" y="18" width="9" height="26" rx="2.5" fill="#1E3A2F"/>
-          <rect x="30" y="8" width="9" height="36" rx="2.5" fill="#1E3A2F"/>
-          <circle cx="34.5" cy="6" r="4.5" fill="#D4AF37"/>
+      <div class="flex items-center gap-2 mb-1.5">
+        <svg width="22" height="22" viewBox="0 0 48 48" class="flex-none marca-icone">
+          <rect x="4" y="28" width="9" height="16" rx="2.5" fill="#00B8A9"/>
+          <rect x="17" y="18" width="9" height="26" rx="2.5" fill="#00B8A9"/>
+          <rect x="30" y="8" width="9" height="36" rx="2.5" fill="#00B8A9"/>
+          <circle cx="34.5" cy="6" r="4.5" fill="#EAF6F5"/>
         </svg>
-        <span class="text-xs font-semibold text-slate-400"><span class="text-slate-400">app_</span>financeiro</span>
+        <span class="text-sm font-bold text-[#EAF6F5]"><span class="text-[#7FA3AA] font-semibold">app_</span>financeiro</span>
       </div>
-      <h1 id="empresaNome" class="text-2xl font-bold text-[#111111]">Carregando...</h1>
-      <p class="text-sm text-slate-500">Controle de gastos e receitas — <span id="empresaSlug"></span></p>
+      <h1 id="empresaNome" class="text-2xl font-bold text-[#EAF6F5]">Carregando...</h1>
+      <p class="text-sm text-[#7FA3AA]">Controle de gastos e receitas — <span id="empresaSlug"></span></p>
       <div class="relative mt-1">
-        <button id="botaoSeletorEmpresa" type="button" class="hidden text-sm border rounded-lg px-2 py-1 bg-white hover:bg-slate-50">Empresas ▾</button>
-        <div id="painelSeletorEmpresa" class="hidden absolute z-10 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-2 space-y-1 text-sm min-w-[200px]"></div>
+        <button id="botaoSeletorEmpresa" type="button" class="hidden text-sm border border-[#1B3D48] rounded-lg px-2 py-1 bg-[#0F2C36] hover:bg-[#173139]">Empresas ▾</button>
+        <div id="painelSeletorEmpresa" class="hidden absolute z-10 mt-1 bg-[#0F2C36] border border-[#1B3D48] rounded-lg shadow-lg p-2 space-y-1 text-sm min-w-[200px]"></div>
       </div>
-      <p id="avisoMultiEmpresa" class="hidden mt-1 text-xs text-amber-600">Visualização somada de várias empresas — selecione só uma pra adicionar lançamentos.</p>
+      <p id="avisoMultiEmpresa" class="hidden mt-1 text-xs text-amber-400">Visualização somada de várias empresas — selecione só uma pra adicionar lançamentos.</p>
     </div>
     <div class="text-right">
-      <div id="headerStatus" class="text-sm text-slate-400"></div>
-      <button id="btnTrocarToken" class="text-xs text-slate-400 underline">trocar código de acesso</button>
+      <div id="headerStatus" class="text-sm text-[#5C7D84]"></div>
+      <button id="btnTrocarToken" class="text-xs text-[#5C7D84] underline">trocar código de acesso</button>
     </div>
   </header>
 
   <!-- Tabs -->
-  <nav class="flex gap-6 border-b border-slate-200 mb-6">
-    <button data-tab="lancamentos" class="tab-btn active pb-3 border-b-2 border-transparent text-slate-500">Lançamentos</button>
-    <button data-tab="resumo" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500">Dashboard</button>
-    <button data-tab="cadastros" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500">Categorias &amp; Contas</button>
+  <nav class="flex gap-6 border-b border-[#1B3D48] mb-6">
+    <button data-tab="lancamentos" class="tab-btn active pb-3 border-b-2 border-transparent text-[#7FA3AA]">Lançamentos</button>
+    <button data-tab="resumo" class="tab-btn pb-3 border-b-2 border-transparent text-[#7FA3AA]">Dashboard</button>
+    <button data-tab="cadastros" class="tab-btn pb-3 border-b-2 border-transparent text-[#7FA3AA]">Categorias &amp; Contas</button>
   </nav>
 
   <!-- Erro global -->
@@ -126,7 +128,7 @@
   <!-- ===================== TAB: LANÇAMENTOS ===================== -->
   <section id="tab-lancamentos" class="tab-panel active space-y-6">
 
-    <div id="cardNovoLancamento" data-form-empresa-unica class="bg-white rounded-xl border border-slate-200 p-4">
+    <div id="cardNovoLancamento" data-form-empresa-unica class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
       <h2 class="font-semibold mb-3">Novo lançamento</h2>
       <form id="formTransacao" class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <select name="tipo" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
@@ -145,22 +147,22 @@
           <option value="confirmado">Confirmado</option>
           <option value="previsto">Previsto</option>
         </select>
-        <button type="submit" class="col-span-1 bg-[#1E3A2F] text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#16281F]">Adicionar</button>
+        <button type="submit" class="col-span-1 bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#00A396]">Adicionar</button>
       </form>
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-4">
+    <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
       <div class="flex flex-wrap gap-2 items-end mb-4">
         <div>
-          <label class="block text-xs text-slate-500 mb-1">De</label>
+          <label class="block text-xs text-[#7FA3AA] mb-1">De</label>
           <input id="filtroInicio" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
         </div>
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Até</label>
+          <label class="block text-xs text-[#7FA3AA] mb-1">Até</label>
           <input id="filtroFim" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
         </div>
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Tipo</label>
+          <label class="block text-xs text-[#7FA3AA] mb-1">Tipo</label>
           <select id="filtroTipo" class="border rounded-lg px-2 py-1.5 text-sm">
             <option value="">Todos</option>
             <option value="receita">Receita</option>
@@ -168,17 +170,17 @@
           </select>
         </div>
         <div>
-          <label class="block text-xs text-slate-500 mb-1">Conta</label>
+          <label class="block text-xs text-[#7FA3AA] mb-1">Conta</label>
           <select id="filtroConta" class="border rounded-lg px-2 py-1.5 text-sm"><option value="">Todas</option></select>
         </div>
-        <button id="btnFiltrar" class="bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 text-sm">Filtrar</button>
-        <button id="btnLimparFiltro" class="text-slate-500 text-sm underline">limpar</button>
+        <button id="btnFiltrar" class="bg-[#132A31] hover:bg-[#1F4650] rounded-lg px-3 py-1.5 text-sm">Filtrar</button>
+        <button id="btnLimparFiltro" class="text-[#7FA3AA] text-sm underline">limpar</button>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="text-left text-slate-500 border-b border-slate-200">
+            <tr class="text-left text-[#7FA3AA] border-b border-[#1B3D48]">
               <th id="colEmpresaHeader" class="hidden py-2 pr-2">Empresa</th>
               <th class="py-2 pr-2">Data</th>
               <th class="py-2 pr-2">Tipo</th>
@@ -192,54 +194,54 @@
           </thead>
           <tbody id="tabelaTransacoes"></tbody>
         </table>
-        <p id="listaVazia" class="hidden text-center text-slate-400 py-6 text-sm">Nenhum lançamento encontrado.</p>
+        <p id="listaVazia" class="hidden text-center text-[#5C7D84] py-6 text-sm">Nenhum lançamento encontrado.</p>
       </div>
     </div>
   </section>
 
   <!-- ===================== TAB: DASHBOARD ===================== -->
   <section id="tab-resumo" class="tab-panel space-y-6">
-    <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap gap-3 items-end">
+    <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4 flex flex-wrap gap-3 items-end">
       <div>
-        <label class="block text-xs text-slate-500 mb-1">De</label>
+        <label class="block text-xs text-[#7FA3AA] mb-1">De</label>
         <input id="resumoInicio" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
       </div>
       <div>
-        <label class="block text-xs text-slate-500 mb-1">Até</label>
+        <label class="block text-xs text-[#7FA3AA] mb-1">Até</label>
         <input id="resumoFim" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
       </div>
-      <button id="btnAtualizarResumo" class="bg-[#1E3A2F] text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-[#16281F]">Atualizar</button>
+      <button id="btnAtualizarResumo" class="bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-[#00A396]">Atualizar</button>
     </div>
 
     <!-- KPI tiles -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-white rounded-xl border border-slate-200 p-4 border-t-4 border-t-emerald-600">
-        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Receitas</p>
-        <p id="totalReceitas" class="text-2xl font-bold text-emerald-700">—</p>
+      <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4 border-t-4 border-t-emerald-600">
+        <p class="text-xs text-[#7FA3AA] mb-1 uppercase tracking-wide">Receitas</p>
+        <p id="totalReceitas" class="text-2xl font-bold text-emerald-400">—</p>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 border-t-4 border-t-red-600">
-        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Despesas</p>
-        <p id="totalDespesas" class="text-2xl font-bold text-red-700">—</p>
+      <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4 border-t-4 border-t-red-600">
+        <p class="text-xs text-[#7FA3AA] mb-1 uppercase tracking-wide">Despesas</p>
+        <p id="totalDespesas" class="text-2xl font-bold text-red-400">—</p>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 border-t-4 border-t-[#1E3A2F]">
-        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Saldo</p>
-        <p id="totalSaldo" class="text-2xl font-bold text-[#111111]">—</p>
+      <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4 border-t-4 border-t-[#00B8A9]">
+        <p class="text-xs text-[#7FA3AA] mb-1 uppercase tracking-wide">Saldo</p>
+        <p id="totalSaldo" class="text-2xl font-bold text-[#EAF6F5]">—</p>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 border-t-4 border-t-[#D4AF37]">
-        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wide">Lançamentos</p>
-        <p id="totalLancamentos" class="text-2xl font-bold text-[#111111]">—</p>
+      <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4 border-t-4 border-t-[#00B8A9]">
+        <p class="text-xs text-[#7FA3AA] mb-1 uppercase tracking-wide">Lançamentos</p>
+        <p id="totalLancamentos" class="text-2xl font-bold text-[#EAF6F5]">—</p>
       </div>
     </div>
 
     <!-- Charts -->
     <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-      <div class="bg-white rounded-xl border border-slate-200 p-4 md:col-span-2">
+      <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4 md:col-span-2">
         <h2 class="font-semibold mb-3">Receitas x Despesas</h2>
         <div class="relative h-56">
           <canvas id="chartReceitaDespesa"></canvas>
         </div>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 md:col-span-3">
+      <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4 md:col-span-3">
         <h2 class="font-semibold mb-3">Totais por categoria</h2>
         <div class="relative h-56">
           <canvas id="chartCategorias"></canvas>
@@ -247,18 +249,18 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-4">
+    <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
       <h2 class="font-semibold mb-3">Saldo por conta</h2>
       <div class="relative h-48">
         <canvas id="chartSaldoConta"></canvas>
       </div>
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-4">
+    <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
       <h2 class="font-semibold mb-3">Detalhe por categoria</h2>
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-left text-slate-500 border-b border-slate-200">
+          <tr class="text-left text-[#7FA3AA] border-b border-[#1B3D48]">
             <th class="py-2 pr-2">Categoria</th>
             <th class="py-2 pr-2 text-right">Receitas</th>
             <th class="py-2 pr-2 text-right">Despesas</th>
@@ -272,7 +274,7 @@
   <!-- ===================== TAB: CADASTROS ===================== -->
   <section id="tab-cadastros" class="tab-panel">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
         <h2 class="font-semibold mb-3">Categorias</h2>
         <form id="formCategoria" class="flex gap-2 mb-4" data-form-empresa-unica>
           <input name="nome" placeholder="Nome" required class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
@@ -280,12 +282,12 @@
             <option value="receita">Receita</option>
             <option value="despesa">Despesa</option>
           </select>
-          <button type="submit" class="bg-[#1E3A2F] text-white rounded-lg px-3 py-1.5 text-sm hover:bg-[#16281F]">+</button>
+          <button type="submit" class="bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-1.5 text-sm hover:bg-[#00A396]">+</button>
         </form>
         <ul id="listaCategorias" class="space-y-1 text-sm"></ul>
       </div>
 
-      <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
         <h2 class="font-semibold mb-3">Contas</h2>
         <form id="formConta" class="flex gap-2 mb-4" data-form-empresa-unica>
           <input name="nome" placeholder="Nome" required class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
@@ -295,7 +297,7 @@
             <option value="cartao">Cartão</option>
           </select>
           <input name="saldo_inicial" type="number" step="0.01" placeholder="Saldo inicial" class="w-28 border rounded-lg px-2 py-1.5 text-sm">
-          <button type="submit" class="bg-[#1E3A2F] text-white rounded-lg px-3 py-1.5 text-sm hover:bg-[#16281F]">+</button>
+          <button type="submit" class="bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-1.5 text-sm hover:bg-[#00A396]">+</button>
         </form>
         <ul id="listaContas" class="space-y-1 text-sm"></ul>
       </div>
@@ -493,7 +495,7 @@ function renderizarSeletorEmpresa() {
   botao.textContent = (nomesSelecionados.length > 1 ? `${nomesSelecionados.length} empresas` : nomesSelecionados[0]) + " ▾";
 
   painel.innerHTML = state.empresasDisponiveis.map(e => `
-    <label class="flex items-center gap-2 px-1 py-0.5 hover:bg-slate-50 rounded cursor-pointer">
+    <label class="flex items-center gap-2 px-1 py-0.5 hover:bg-[#173139] rounded cursor-pointer">
       <input type="checkbox" data-empresa-id="${e.id}" ${state.empresasSelecionadasIds.includes(e.id) ? "checked" : ""}>
       <span>${e.nome}${e.id === state.empresaHome.id ? " (própria)" : ""}</span>
     </label>
@@ -543,11 +545,11 @@ async function carregarCategorias() {
 
   const lista = document.getElementById("listaCategorias");
   lista.innerHTML = categorias.map(c =>
-    `<li class="flex justify-between border-b border-slate-100 py-1">
+    `<li class="flex justify-between border-b border-[#14313A] py-1">
       <span>${c.nome}</span>
       <span class="text-xs px-2 py-0.5 rounded-full ${c.tipo === "receita" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}">${c.tipo}</span>
     </li>`
-  ).join("") || '<li class="text-slate-400">Nenhuma categoria ainda.</li>';
+  ).join("") || '<li class="text-[#5C7D84]">Nenhuma categoria ainda.</li>';
 }
 
 async function carregarContas() {
@@ -568,11 +570,11 @@ async function carregarContas() {
 
   const lista = document.getElementById("listaContas");
   lista.innerHTML = contas.map(c =>
-    `<li class="flex justify-between border-b border-slate-100 py-1">
-      <span>${c.nome} <span class="text-xs text-slate-400">(${c.tipo})</span></span>
+    `<li class="flex justify-between border-b border-[#14313A] py-1">
+      <span>${c.nome} <span class="text-xs text-[#5C7D84]">(${c.tipo})</span></span>
       <span>${formatarMoeda(c.saldo_inicial)}</span>
     </li>`
-  ).join("") || '<li class="text-slate-400">Nenhuma conta ainda.</li>';
+  ).join("") || '<li class="text-[#5C7D84]">Nenhuma conta ainda.</li>';
 }
 
 async function carregarTransacoes(filtros = {}) {
@@ -596,19 +598,19 @@ async function carregarTransacoes(filtros = {}) {
   vazio.classList.add("hidden");
 
   tbody.innerHTML = transacoes.map(t => `
-    <tr class="border-b border-slate-100" data-id="${t.id}">
-      ${multi ? `<td class="py-2 pr-2 text-xs text-slate-500">${empresaSelecionadaNome(t._empresaId)}</td>` : ""}
+    <tr class="border-b border-[#14313A]" data-id="${t.id}">
+      ${multi ? `<td class="py-2 pr-2 text-xs text-[#7FA3AA]">${empresaSelecionadaNome(t._empresaId)}</td>` : ""}
       <td class="py-2 pr-2">${t.data}</td>
       <td class="py-2 pr-2">
         <span class="text-xs px-2 py-0.5 rounded-full ${t.tipo === "receita" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}">${t.tipo}</span>
       </td>
       <td class="py-2 pr-2">${nomeConta(t.conta_id)}</td>
       <td class="py-2 pr-2">${nomeCategoria(t.categoria_id)}</td>
-      <td class="py-2 pr-2 text-slate-500">${t.descricao || ""}</td>
+      <td class="py-2 pr-2 text-[#7FA3AA]">${t.descricao || ""}</td>
       <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(t.valor)}</td>
-      <td class="py-2 pr-2 text-xs text-slate-400">${t.status}</td>
+      <td class="py-2 pr-2 text-xs text-[#5C7D84]">${t.status}</td>
       <td class="py-2 pr-2 text-right">
-        <button class="text-red-500 hover:underline text-xs" data-excluir="${t.id}" data-empresa-id="${t._empresaId}">excluir</button>
+        <button class="text-red-400 hover:underline text-xs" data-excluir="${t.id}" data-empresa-id="${t._empresaId}">excluir</button>
       </td>
     </tr>
   `).join("");
@@ -705,7 +707,9 @@ document.getElementById("formConta").addEventListener("submit", async (e) => {
 // ---------------------------------------------------------------------------
 // Dashboard (aba "resumo" internamente — ver CLAUDE.md)
 // ---------------------------------------------------------------------------
-const CORES = { receita: "#059669", despesa: "#dc2626", primaria: "#1E3A2F", dourado: "#D4AF37" };
+const CORES = { receita: "#059669", despesa: "#dc2626", primaria: "#00B8A9", dourado: "#EAF6F5" };
+Chart.defaults.color = "#7FA3AA";
+Chart.defaults.borderColor = "#1B3D48";
 let graficos = { receitaDespesa: null, categorias: null, saldoConta: null };
 
 function destruirGrafico(chave) {
@@ -746,12 +750,12 @@ async function carregarResumo() {
     document.getElementById("totalLancamentos").textContent = totalLancamentos;
 
     document.getElementById("tabelaCategorias").innerHTML = porCategoria.map(c => `
-      <tr class="border-b border-slate-100">
+      <tr class="border-b border-[#14313A]">
         <td class="py-2 pr-2">${multi ? `${empresaSelecionadaNome(c._empresaId)} — ` : ""}${nomeCategoria(c.categoria_id)}</td>
-        <td class="py-2 pr-2 text-right text-emerald-700">${formatarMoeda(c.receita)}</td>
-        <td class="py-2 pr-2 text-right text-red-700">${formatarMoeda(c.despesa)}</td>
+        <td class="py-2 pr-2 text-right text-emerald-400">${formatarMoeda(c.receita)}</td>
+        <td class="py-2 pr-2 text-right text-red-400">${formatarMoeda(c.despesa)}</td>
       </tr>
-    `).join("") || '<tr><td colspan="3" class="text-slate-400 py-3">Nenhum lançamento no período.</td></tr>';
+    `).join("") || '<tr><td colspan="3" class="text-[#5C7D84] py-3">Nenhum lançamento no período.</td></tr>';
 
     // Donut: Receitas x Despesas
     destruirGrafico("receitaDespesa");
