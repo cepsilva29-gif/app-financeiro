@@ -82,14 +82,19 @@ owner. Keep new docs and UI copy in Portuguese too.
   label only (internal `data-tab`/`id`/function/endpoint names all still say "resumo", see below),
   then rebuilt as KPI tiles + Chart.js charts (donut, grouped bar, horizontal bar) instead of plain
   numbers/lists, on explicit user request ("como power bi"). See "Dashboard" under Frontend below.
-- **Hotmart integration added, deployed but not yet wired to real Hotmart credentials**
-  (2026-09-21) — `13-hotmart-vendas` logs Hotmart's 4 purchase-lifecycle webhook events (approved/
-  canceled/refunded/chargeback) and deactivates the matching empresa (by e-mail match) on the
-  latter 3. Explicitly **not** automatic empresa creation — the buyer still signs up manually via
-  `12-cadastro-publico`, same as today. Schema + n8n workflow are live and reject every request
-  with 403 right now **by design**, because the real Hotmart secret (HOTTOK) isn't wired in yet —
-  see "Integração Hotmart" below for the pending steps and why this fail-closed state is correct,
-  not broken.
+- **Hotmart integration — done, wired to real credentials, verified end-to-end** (2026-09-21) —
+  `13-hotmart-vendas` logs Hotmart's 4 purchase-lifecycle webhook events (approved/canceled/
+  refunded/chargeback) and deactivates the matching empresa (by e-mail match) on the latter 3.
+  Explicitly **not** automatic empresa creation — the buyer still signs up manually via
+  `12-cadastro-publico`, same as today. The real HOTTOK from the user's Hotmart panel is now in the
+  n8n credential (`PATCH /api/v1/credentials/{id}` worked directly, no delete+recreate needed).
+  Verified live with synthetic events matching Hotmart's real v2.0.0 payload shape (a real purchase
+  hasn't happened yet): approved event → row lands in `hotmart_eventos` with fields parsed
+  correctly; same event resent → deduplicated, no second row; canceled event against a disposable
+  test empresa sharing the buyer's e-mail → `ativo` flipped to `false` **and** that empresa's
+  `access_token` immediately started returning `401` (confirmed the existing `ativo eq true` filter
+  in `Resolver Empresa`, shared by all 10 other workflows, was sufficient — no workflow changes were
+  needed for this). See "Integração Hotmart" below.
 
 ## Architecture
 
@@ -348,26 +353,26 @@ for).
   app_financeiro`, id `b0f725B6MXursgE6`), checked by n8n itself before the workflow even runs — no
   custom node needed, same "credential, not env var, not hardcoded" rule as everywhere else in this
   project.
-- **Currently fail-closed, on purpose**: the credential was created with a random placeholder
-  value (not the real HOTTOK, which only exists once the webhook is registered in Hotmart's own
-  panel — chicken-and-egg with the setup steps below), so every request gets `403` until it's
-  updated. Confirmed by testing: both a missing header and a wrong-value header return `403`
-  identically. **Pending step — do this once the user has been through the Hotmart panel setup**:
-  `PATCH /api/v1/credentials/b0f725B6MXursgE6` (or delete+recreate, n8n's credential PATCH support
-  varies by version) with the real HOTTOK as `data.value`; also replace
-  `hotmart_hottok:PENDENTE_COLAR_VALOR_REAL_DO_PAINEL_HOTMART` in `.env` with the real value once
-  it's known, so it's recorded the same way every other secret in this project is.
+- **Was fail-closed by design until the real HOTTOK was wired in** (now done, 2026-09-21): the
+  credential was first created with a random placeholder value, and every request got `403` until
+  it was updated. Confirmed by testing at that point: both a missing header and a wrong-value
+  header returned `403` identically. Once the user registered the webhook in Hotmart's panel and
+  handed over the real HOTTOK, `PATCH /api/v1/credentials/b0f725B6MXursgE6` (with
+  `data: {name: "X-HOTMART-HOTTOK", value: <real HOTTOK>}`) updated it in place — no delete+recreate
+  needed, n8n's public API does support credential `PATCH`. Real value is recorded in `.env` as
+  `hotmart_hottok:` (2026-09-21), same as every other secret in this project.
 - **Hotmart panel setup** (done by the user directly in Hotmart's dashboard, not via API — no
-  Hotmart API credential exists in this project): Ferramentas → Webhook (or Postback, depending on
-  panel version) → new webhook → URL `https://n8n.engenhariadedadosn8n.shop/webhook/financeiro/hotmart`,
-  version 2.0.0, product = the user's own product, events = the 4 listed above only. Saving it is
-  what generates/reveals the account's HOTTOK — that value is what goes into the credential above.
+  Hotmart API credential exists in this project): Ferramentas → Webhook → webhook registered at
+  `https://n8n.engenhariadedadosn8n.shop/webhook/financeiro/hotmart`, version 2.0.0, the user's
+  product, the 4 events above only. Saving it is what generated/revealed the account's HOTTOK.
 - **Payload parsing** (`Extrair Evento` Code node) reads `body.data.buyer.{email,name}`,
   `body.data.purchase.{transaction,price.value}`, `body.data.product.name` — standard Hotmart
-  v2.0.0 purchase-webhook shape. Not yet verified against a real Hotmart payload (blocked on the
-  pending HOTTOK step above) — **re-check these field paths against the first real event once
-  Hotmart setup is complete**, and adjust `Extrair Evento` if Hotmart's actual payload differs from
-  the documented shape.
+  v2.0.0 purchase-webhook shape. **Verified against synthetic events built to match this exact
+  shape** (2026-09-21, via the real HOTTOK) — a real Hotmart purchase hasn't happened yet, so this
+  is confirmed-by-construction, not confirmed against Hotmart's live traffic; if the first real
+  event's fields come back null/wrong in `hotmart_eventos`, re-check this shape against the actual
+  raw `payload` column (which always stores the full body regardless of how parsing goes) before
+  assuming the workflow itself is broken.
 - **`hotmart_eventos` table** (`supabase/schema.sql`) — append-only audit log, one row per (evento,
   transacao_hotmart) pair (`unique(transacao_hotmart, evento)`, checked via a
   query-then-insert `Verificar Duplicado (Supabase)` → `Ja Registrado?` step before insert, same
@@ -398,13 +403,18 @@ for).
   SQL, confirmed `listar-categorias` with its token returned `200` while `ativo=true`, flipped it
   to `ativo=false` via SQL, same token then got `401 "Token de acesso invalido"` from the same
   endpoint — then deleted the test empresa. No code changed for this; it was already correct.
-- **End-to-end verification status**: the auth-rejection path (`403` for missing/wrong
-  `X-HOTMART-HOTTOK`) and the downstream `ativo` enforcement (above) are both confirmed live. What's
-  **not** yet verified is a real Hotmart event actually reaching and being parsed by `Extrair
-  Evento` — blocked on the pending HOTTOK step above. Once that's done: trigger a real (or Hotmart's
-  own sandbox/test) `PURCHASE_APPROVED` event and confirm a row lands in `hotmart_eventos` with the
-  fields correctly parsed; then a cancellation against an empresa that has already signed up and
-  confirm `ativo` flips to `false` **and** that empresa's `access_token` stops working.
+- **Full end-to-end verification, 2026-09-21** (real HOTTOK, synthetic but shape-accurate
+  payloads, all test data cleaned up via SQL afterward — same pattern used everywhere else in this
+  project): a `PURCHASE_APPROVED` event landed correctly in `hotmart_eventos` with every field
+  parsed (evento, status, transacao_hotmart, produto, comprador_nome/email, valor); resending the
+  identical event returned `{"sucesso":true,"duplicado":true}` and did not create a second row;
+  a `PURCHASE_CANCELED` event against a disposable empresa sharing the buyer's e-mail resolved
+  `empresa_id` correctly, flipped `ativo` to `false`, and that empresa's `access_token` immediately
+  started returning `401` on an unrelated endpoint (`listar-categorias`) — confirming the whole
+  chain (webhook → dedupe → e-mail match → deactivation → auth enforcement) works, not just each
+  piece in isolation. **Only remaining gap**: no *real* Hotmart purchase has gone through this yet
+  (see the payload-parsing note above) — worth a quick sanity check on `hotmart_eventos` after the
+  first genuine sale.
 
 ### Matriz/filial
 
