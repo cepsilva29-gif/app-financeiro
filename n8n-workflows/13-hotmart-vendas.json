@@ -1,0 +1,300 @@
+{
+  "name": "financeiro - hotmart-vendas",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "financeiro/hotmart",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4a11-9001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1800, 0],
+      "webhookId": "b2c3d4e5-0002-4a22-9002-000000000002",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER_CREDENTIAL_ID",
+          "name": "Hotmart - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst EVENTOS_VALIDOS = {\n  'PURCHASE_APPROVED': 'aprovada',\n  'PURCHASE_CANCELED': 'cancelada',\n  'PURCHASE_REFUNDED': 'reembolsada',\n  'PURCHASE_CHARGEBACK': 'chargeback',\n};\nconst evento = String(body.event || '').trim();\nconst data = body.data || {};\nconst buyer = data.buyer || {};\nconst purchase = data.purchase || {};\nconst product = data.product || {};\nreturn [{ json: {\n  reconhecido: Object.prototype.hasOwnProperty.call(EVENTOS_VALIDOS, evento),\n  evento,\n  status: EVENTOS_VALIDOS[evento] || null,\n  transacao_hotmart: String(purchase.transaction || ''),\n  produto: product.name || null,\n  comprador_nome: buyer.name || null,\n  comprador_email: buyer.email ? String(buyer.email).trim().toLowerCase() : null,\n  valor: (purchase.price && purchase.price.value != null) ? Number(purchase.price.value) : null,\n  payload: body,\n} }];"
+      },
+      "id": "a1b2c3d4-0003-4a33-9003-000000000003",
+      "name": "Extrair Evento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1600, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 1 },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.reconhecido }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0004-4a44-9004-000000000004",
+      "name": "Evento Reconhecido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-1400, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": true, \"ignorado\": true } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "a1b2c3d4-0005-4a55-9005-000000000005",
+      "name": "Responder Ignorado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-1200, 200]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "hotmart_eventos",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transacao_hotmart",
+              "condition": "eq",
+              "keyValue": "={{ $json.transacao_hotmart }}"
+            },
+            {
+              "keyName": "evento",
+              "condition": "eq",
+              "keyValue": "={{ $json.evento }}"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0006-4a66-9006-000000000006",
+      "name": "Verificar Duplicado (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-1200, -80],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": { "id": "aYsNFdB5mXwMqYVO", "name": "Supabase - app_financeiro" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { duplicado: rows.length > 0 } }];"
+      },
+      "id": "a1b2c3d4-0007-4a77-9007-000000000007",
+      "name": "Checar Duplicado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1000, -80]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 1 },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.duplicado }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0008-4a88-9008-000000000008",
+      "name": "Ja Registrado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-800, -80]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": true, \"duplicado\": true } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "a1b2c3d4-0009-4a99-9009-000000000009",
+      "name": "Responder Duplicado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-600, 120]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "empresas",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email",
+              "condition": "eq",
+              "keyValue": "={{ $('Extrair Evento').first().json.comprador_email }}"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0010-4aaa-9010-000000000010",
+      "name": "Buscar Empresa Por Email (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-600, -160],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": { "id": "aYsNFdB5mXwMqYVO", "name": "Supabase - app_financeiro" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { empresa_id: rows.length ? rows[0].id : null } }];"
+      },
+      "id": "a1b2c3d4-0011-4abb-9011-000000000011",
+      "name": "Resolver Empresa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-400, -160]
+    },
+    {
+      "parameters": {
+        "tableId": "hotmart_eventos",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "evento", "fieldValue": "={{ $('Extrair Evento').first().json.evento }}" },
+            { "fieldId": "status", "fieldValue": "={{ $('Extrair Evento').first().json.status }}" },
+            { "fieldId": "transacao_hotmart", "fieldValue": "={{ $('Extrair Evento').first().json.transacao_hotmart }}" },
+            { "fieldId": "produto", "fieldValue": "={{ $('Extrair Evento').first().json.produto }}" },
+            { "fieldId": "comprador_nome", "fieldValue": "={{ $('Extrair Evento').first().json.comprador_nome }}" },
+            { "fieldId": "comprador_email", "fieldValue": "={{ $('Extrair Evento').first().json.comprador_email }}" },
+            { "fieldId": "valor", "fieldValue": "={{ $('Extrair Evento').first().json.valor }}" },
+            { "fieldId": "empresa_id", "fieldValue": "={{ $json.empresa_id }}" },
+            { "fieldId": "payload", "fieldValue": "={{ $('Extrair Evento').first().json.payload }}" }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0012-4acc-9012-000000000012",
+      "name": "Registrar Evento (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-200, -160],
+      "credentials": {
+        "supabaseApi": { "id": "aYsNFdB5mXwMqYVO", "name": "Supabase - app_financeiro" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 1 },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ ['PURCHASE_CANCELED','PURCHASE_REFUNDED','PURCHASE_CHARGEBACK'].includes($('Extrair Evento').first().json.evento) && !!$('Resolver Empresa').first().json.empresa_id }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0013-4add-9013-000000000013",
+      "name": "Deve Desativar Empresa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [0, -160]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "empresas",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Resolver Empresa').first().json.empresa_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "ativo", "fieldValue": false }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0014-4aee-9014-000000000014",
+      "name": "Desativar Empresa (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [200, -260],
+      "credentials": {
+        "supabaseApi": { "id": "aYsNFdB5mXwMqYVO", "name": "Supabase - app_financeiro" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"sucesso\": true } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "a1b2c3d4-0015-4aff-9015-000000000015",
+      "name": "Responder Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [400, -160]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Extrair Evento", "type": "main", "index": 0 }]] },
+    "Extrair Evento": { "main": [[{ "node": "Evento Reconhecido?", "type": "main", "index": 0 }]] },
+    "Evento Reconhecido?": {
+      "main": [
+        [{ "node": "Verificar Duplicado (Supabase)", "type": "main", "index": 0 }],
+        [{ "node": "Responder Ignorado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Verificar Duplicado (Supabase)": { "main": [[{ "node": "Checar Duplicado", "type": "main", "index": 0 }]] },
+    "Checar Duplicado": { "main": [[{ "node": "Ja Registrado?", "type": "main", "index": 0 }]] },
+    "Ja Registrado?": {
+      "main": [
+        [{ "node": "Responder Duplicado", "type": "main", "index": 0 }],
+        [{ "node": "Buscar Empresa Por Email (Supabase)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar Empresa Por Email (Supabase)": { "main": [[{ "node": "Resolver Empresa", "type": "main", "index": 0 }]] },
+    "Resolver Empresa": { "main": [[{ "node": "Registrar Evento (Supabase)", "type": "main", "index": 0 }]] },
+    "Registrar Evento (Supabase)": { "main": [[{ "node": "Deve Desativar Empresa?", "type": "main", "index": 0 }]] },
+    "Deve Desativar Empresa?": {
+      "main": [
+        [{ "node": "Desativar Empresa (Supabase)", "type": "main", "index": 0 }],
+        [{ "node": "Responder Sucesso", "type": "main", "index": 0 }]
+      ]
+    },
+    "Desativar Empresa (Supabase)": { "main": [[{ "node": "Responder Sucesso", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

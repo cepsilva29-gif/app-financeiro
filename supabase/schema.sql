@@ -76,3 +76,27 @@ select id, 'Fornecedores', 'despesa' from empresas where slug = 'demo';
 
 insert into contas (empresa_id, nome, tipo, saldo_inicial)
 select id, 'Caixa', 'caixa', 0 from empresas where slug = 'demo';
+
+-- Migração 2026-09-21 — integração Hotmart (registro de vendas + desativação em
+-- cancelamento/reembolso/chargeback). Ver CLAUDE.md "Integração Hotmart" e
+-- n8n-workflows/13-hotmart-vendas.json. Log de auditoria de todo evento recebido do webhook
+-- Hotmart; empresa_id é resolvido por match de e-mail contra empresas.email (comprador faz
+-- cadastro manual depois — não há criação automática de empresa aqui), fica null até isso
+-- acontecer. unique(transacao_hotmart, evento) existe pra idempotência: Hotmart pode reenviar
+-- o mesmo evento mais de uma vez.
+create table hotmart_eventos (
+  id                 bigint generated always as identity primary key,
+  evento             text not null check (evento in ('PURCHASE_APPROVED','PURCHASE_CANCELED','PURCHASE_REFUNDED','PURCHASE_CHARGEBACK')),
+  status             text not null,
+  transacao_hotmart  text not null,
+  produto            text,
+  comprador_nome     text,
+  comprador_email    text,
+  valor              numeric(14,2),
+  empresa_id         bigint references empresas(id),
+  payload            jsonb not null,
+  recebido_em        timestamptz not null default now(),
+  unique (transacao_hotmart, evento)
+);
+
+alter table hotmart_eventos enable row level security;
