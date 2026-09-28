@@ -480,6 +480,8 @@ async function recarregarTudo() {
 
   await Promise.all([carregarCategorias(), carregarContas()]);
   await carregarTransacoes();
+  // o Dashboard só recarrega ao entrar na aba — se ela já está aberta, recarrega aqui
+  if (document.getElementById("tab-resumo").classList.contains("active")) await carregarResumo();
 }
 
 function renderizarSeletorEmpresa() {

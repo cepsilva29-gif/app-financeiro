@@ -27,7 +27,18 @@ owner. Keep new docs and UI copy in Portuguese too.
 
 ## Status
 
-- **Fase 1 — done.** Schema live in Supabase project `vussdcsiqtsvzdicfrez` (`supabase/schema.sql`):
+- **Supabase migrated to a new project** (2026-09-28): `cecbbafjgfqmqkbhnbhg` ("Contrrole
+  Financeiro", sa-east-1, under a different Supabase account than before — hence the new `token:`
+  in `.env`). The original project `vussdcsiqtsvzdicfrez` had been **deleted** (its hostname no
+  longer resolved in DNS, production was silently failing with empty `200` responses), so there
+  was **no data to migrate** — the new DB started from `supabase/schema.sql` alone (just the
+  `demo` seed). The switch itself was a single `PATCH` of the n8n credential `Supabase -
+  app_financeiro` (host + service_role); no workflow JSON changed. Every workflow was re-verified
+  end-to-end against the new DB (CRUD, validation, tenant isolation, matriz/filial 403s, public
+  signup incl. `token_matriz`, admin onboarding, Hotmart dedup + deactivation → 401, frontend in a
+  real browser), then all test rows deleted by explicit id. Everything below that mentions
+  "verified" predates this migration unless it says otherwise.
+- **Fase 1 — done.** Schema live in Supabase project `cecbbafjgfqmqkbhnbhg` (`supabase/schema.sql`):
   `empresas`, `categorias`, `contas`, `transacoes`, RLS enabled on all four, seed empresa `demo`
   (2 contas, 3 categorias, 2 transações — safe to query/extend, not safe to assume empty).
 - **Fase 2 — done.** All 6 core workflows from the plan, plus 4 read-only ones added during Fase 3
@@ -656,9 +667,12 @@ Claude-in-Chrome screenshots before touching the real file or deploying.
   neutral/positive bars (saldo por conta), `CORES.dourado` (`#D4AF37`) only on the Lançamentos KPI
   tile's top border — consistent with the "gold used surgically" rule from the color palette
   change above.
-- Not yet verified against live production data (only screenshotted against the standalone mock
-  with fictitious numbers) — verify the real charts once deployed with an empresa that has actual
-  lançamentos.
+- Verified against live data (2026-09-28, during the Supabase migration): KPIs/charts matched the
+  real lançamentos, and the combined matriz+filial view summed correctly. **Bug found and fixed
+  then**: changing the empresa selection while the Dashboard tab was already open didn't reload
+  it (`recarregarTudo()` only reloaded categorias/contas/transações; `carregarResumo()` ran only on
+  tab click / "Atualizar") — `recarregarTudo()` now also calls `carregarResumo()` when
+  `#tab-resumo` is the active panel.
 
 ### Color palette
 
@@ -733,7 +747,7 @@ collisions:
 - **Workflow names** in the n8n UI are prefixed `financeiro - ...`.
 - **Supabase credential** is a dedicated one named `Supabase - app_financeiro` (n8n credential id
   `aYsNFdB5mXwMqYVO`), pointed at this project's own Supabase project
-  (`vussdcsiqtsvzdicfrez.supabase.co`) via its `service_role` key. **Do not** reuse the credentials
+  (`cecbbafjgfqmqkbhnbhg.supabase.co`) via its `service_role` key. **Do not** reuse the credentials
   named `Supabase account` / `Supabase account 2` on this n8n instance — those belong to other
   projects' Supabase databases (confirmed by testing: reusing the wrong one is a real cross-project
   data leak, not just a naming mixup).
@@ -808,7 +822,7 @@ of the outer `workpace` repo — same pattern `App_Agendamento` already uses, se
   expected, without real values.
 - **Applying schema changes**: there's no local Postgres/CLI — `supabase/schema.sql` was applied to
   the live project via the Supabase Management API (`POST
-  /v1/projects/vussdcsiqtsvzdicfrez/database/query`) using the `token:` (personal access token,
+  /v1/projects/cecbbafjgfqmqkbhnbhg/database/query`) using the `token:` (personal access token,
   `sbp_...`) in `.env`, not a direct psql connection (no DB password is stored there — the
   `postgresql://postgres:[YOUR-PASSWORD]@...` line is an unfilled placeholder). Future schema
   changes: write the migration SQL, run it the same way, and append it to `schema.sql` (or start a
