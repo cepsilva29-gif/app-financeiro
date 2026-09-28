@@ -116,3 +116,24 @@ alter table transacoes
   add column cotacao          numeric(12,6),
   add column cotacao_data     date,
   add column cotacao_estimada boolean not null default false;
+
+-- Migração 2026-09-28 — transferência/câmbio entre contas (etapa 3 do suporte a dólar). Ver
+-- CLAUDE.md "Transferências". Tabela separada de transacoes de propósito: transferência não é
+-- receita nem despesa, só move saldo entre duas contas da mesma empresa (e converte a moeda se
+-- as contas forem de moedas diferentes — os dois valores são informados, a taxa é implícita).
+create table transferencias (
+  id               bigint generated always as identity primary key,
+  empresa_id       bigint not null references empresas(id),
+  conta_origem_id  bigint not null references contas(id),
+  conta_destino_id bigint not null references contas(id),
+  valor_origem     numeric(14,2) not null check (valor_origem > 0),   -- na moeda da conta de origem
+  valor_destino    numeric(14,2) not null check (valor_destino > 0),  -- na moeda da conta de destino (= valor_origem se mesma moeda)
+  data             date not null,
+  descricao        text,
+  criado_em        timestamptz not null default now(),
+  check (conta_origem_id <> conta_destino_id)
+);
+
+create index idx_transferencias_empresa_data on transferencias (empresa_id, data);
+
+alter table transferencias enable row level security;

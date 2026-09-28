@@ -129,7 +129,7 @@
   <section id="tab-lancamentos" class="tab-panel active space-y-6">
 
     <div id="cardNovoLancamento" data-form-empresa-unica class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
-      <h2 class="font-semibold mb-3">Novo lançamento</h2>
+      <h2 id="tituloFormLancamento" class="font-semibold mb-3">Novo lançamento</h2>
       <form id="formTransacao" class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <select name="tipo" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
           <option value="">Tipo</option>
@@ -147,8 +147,28 @@
           <option value="confirmado">Confirmado</option>
           <option value="previsto">Previsto</option>
         </select>
-        <button type="submit" class="col-span-1 bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#00A396]">Adicionar</button>
+        <div class="col-span-1 flex gap-2">
+          <button type="submit" id="btnSalvarLancamento" class="flex-1 bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#00A396]">Adicionar</button>
+          <button type="button" id="btnCancelarEdicao" class="hidden border border-[#1B3D48] text-[#7FA3AA] rounded-lg px-3 py-2 text-sm hover:text-[#EAF6F5]">Cancelar</button>
+        </div>
       </form>
+    </div>
+
+    <div id="cardTransferencia" data-form-empresa-unica class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
+      <details>
+        <summary class="font-semibold cursor-pointer">Transferência / câmbio entre contas</summary>
+        <p class="text-xs text-[#7FA3AA] mt-2 mb-3">Move dinheiro entre duas contas da empresa. Não conta como receita nem despesa — só altera o saldo das contas. Entre contas de moedas diferentes, informe quanto saiu e quanto entrou.</p>
+        <form id="formTransferencia" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <select name="conta_origem_id" id="selectContaOrigem" required class="col-span-1 border rounded-lg px-2 py-2 text-sm"></select>
+          <select name="conta_destino_id" id="selectContaDestino" required class="col-span-1 border rounded-lg px-2 py-2 text-sm"></select>
+          <input name="valor_origem" id="inputValorOrigem" type="number" step="0.01" min="0.01" placeholder="Valor que sai" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
+          <input name="valor_destino" id="inputValorDestino" type="number" step="0.01" min="0.01" placeholder="Valor que entra" class="hidden col-span-1 border rounded-lg px-2 py-2 text-sm">
+          <input name="data" type="date" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
+          <input name="descricao" type="text" placeholder="Descrição (opcional)" class="col-span-2 border rounded-lg px-2 py-2 text-sm">
+          <button type="submit" class="col-span-1 bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-2 text-sm font-medium hover:bg-[#00A396]">Transferir</button>
+        </form>
+        <p id="taxaCambio" class="hidden text-xs text-[#7FA3AA] mt-2"></p>
+      </details>
     </div>
 
     <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4">
@@ -167,6 +187,7 @@
             <option value="">Todos</option>
             <option value="receita">Receita</option>
             <option value="despesa">Despesa</option>
+            <option value="transferencia">Transferência</option>
           </select>
         </div>
         <div>
@@ -496,6 +517,7 @@ function empresaSelecionadaNome(id) {
 }
 
 async function recarregarTudo() {
+  if (editandoId) sairEdicao(); // trocou de empresa no meio de uma edição: descarta
   const multi = state.empresasSelecionadasIds.length > 1;
   document.getElementById("avisoMultiEmpresa").classList.toggle("hidden", !multi);
   document.getElementById("colEmpresaHeader").classList.toggle("hidden", !multi);
@@ -620,6 +642,12 @@ async function carregarContas() {
     contas.map(c => `<option value="${c.id}">${rotuloConta(c)}</option>`).join("");
   atualizarRotuloValor();
 
+  document.getElementById("selectContaOrigem").innerHTML = '<option value="">De (conta)</option>' +
+    contas.map(c => `<option value="${c.id}">${rotuloConta(c)}</option>`).join("");
+  document.getElementById("selectContaDestino").innerHTML = '<option value="">Para (conta)</option>' +
+    contas.map(c => `<option value="${c.id}">${rotuloConta(c)}</option>`).join("");
+  atualizarFormTransferencia();
+
   const filtroConta = document.getElementById("filtroConta");
   filtroConta.innerHTML = '<option value="">Todas</option>' +
     contas.map(c => `<option value="${c.id}">${rotuloConta(c)}</option>`).join("");
@@ -650,25 +678,41 @@ async function carregarContas() {
 
 async function carregarTransacoes(filtros = {}) {
   const multi = state.empresasSelecionadasIds.length > 1;
+  // Filtro de tipo: receita/despesa → só lançamentos; transferencia → só transferências
+  const soTransferencias = filtros.tipo === "transferencia";
+  const semTransferencias = filtros.tipo === "receita" || filtros.tipo === "despesa";
+  const filtrosTransf = {};
+  for (const k of ["periodo_inicio", "periodo_fim", "conta_id"]) if (filtros[k]) filtrosTransf[k] = filtros[k];
+
   let transacoes = [];
+  let transferencias = [];
   for (const id of state.empresasSelecionadasIds) {
-    const r = await api("listar-transacoes", { query: filtros, empresaId: id });
-    transacoes = transacoes.concat(r.transacoes.map(t => ({ ...t, _empresaId: id })));
+    if (!soTransferencias) {
+      const r = await api("listar-transacoes", { query: filtros, empresaId: id });
+      transacoes = transacoes.concat(r.transacoes.map(t => ({ ...t, _empresaId: id })));
+    }
+    if (!semTransferencias) {
+      const r = await api("listar-transferencias", { query: filtrosTransf, empresaId: id });
+      transferencias = transferencias.concat(r.transferencias.map(x => ({ ...x, _empresaId: id, _transferencia: true })));
+    }
   }
-  transacoes.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
+  const porData = (a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0);
+  transacoes.sort(porData);
   state.transacoes = transacoes;
+  state.transferencias = transferencias;
+  const linhas = [...transacoes, ...transferencias].sort(porData);
 
   const tbody = document.getElementById("tabelaTransacoes");
   const vazio = document.getElementById("listaVazia");
 
-  if (transacoes.length === 0) {
+  if (linhas.length === 0) {
     tbody.innerHTML = "";
     vazio.classList.remove("hidden");
     return;
   }
   vazio.classList.add("hidden");
 
-  tbody.innerHTML = transacoes.map(t => `
+  tbody.innerHTML = linhas.map(t => t._transferencia ? linhaTransferencia(t, multi) : `
     <tr class="border-b border-[#14313A]" data-id="${t.id}">
       ${multi ? `<td class="py-2 pr-2 text-xs text-[#7FA3AA]">${empresaSelecionadaNome(t._empresaId)}</td>` : ""}
       <td class="py-2 pr-2">${t.data}</td>
@@ -681,11 +725,16 @@ async function carregarTransacoes(filtros = {}) {
       <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(t.valor, moedaConta(t.conta_id))}${linhaConvertida(t)}</td>
       <td class="py-2 pr-2 text-xs text-[#5C7D84]">${t.status}</td>
       <td class="py-2 pr-2 text-right whitespace-nowrap">
+        ${multi ? "" : `<button class="text-[#7FA3AA] hover:underline text-xs mr-2" data-editar="${t.id}">editar</button>`}
         ${moedaConta(t.conta_id) !== "BRL" ? `<button class="text-[#7FA3AA] hover:underline text-xs mr-2" data-cotacao="${t.id}" data-empresa-id="${t._empresaId}">cotação</button>` : ""}
         <button class="text-red-400 hover:underline text-xs" data-excluir="${t.id}" data-empresa-id="${t._empresaId}">excluir</button>
       </td>
     </tr>
   `).join("");
+
+  tbody.querySelectorAll("[data-editar]").forEach(btn => {
+    btn.addEventListener("click", () => entrarEdicao(state.transacoes.find(x => x.id === Number(btn.dataset.editar))));
+  });
 
   tbody.querySelectorAll("[data-cotacao]").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -709,6 +758,18 @@ async function carregarTransacoes(filtros = {}) {
     });
   });
 
+  tbody.querySelectorAll("[data-excluir-transferencia]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Excluir esta transferência? Os saldos das duas contas voltam ao que eram.")) return;
+      try {
+        await api("excluir-transferencia", { method: "POST", body: { id: Number(btn.dataset.excluirTransferencia) }, empresaId: Number(btn.dataset.empresaId) });
+        await carregarTransacoes(filtrosAtuais());
+      } catch (e) {
+        mostrarErro(e.message);
+      }
+    });
+  });
+
   tbody.querySelectorAll("[data-excluir]").forEach(btn => {
     btn.addEventListener("click", async () => {
       if (!confirm("Excluir este lançamento?")) return;
@@ -721,6 +782,77 @@ async function carregarTransacoes(filtros = {}) {
     });
   });
 }
+
+function linhaTransferencia(x, multi) {
+  const mo = moedaConta(x.conta_origem_id);
+  const md = moedaConta(x.conta_destino_id);
+  const entrada = mo !== md ? `<span class="block text-xs font-normal text-[#7FA3AA]">→ ${formatarMoeda(x.valor_destino, md)}</span>` : "";
+  return `
+    <tr class="border-b border-[#14313A]" data-transferencia-id="${x.id}">
+      ${multi ? `<td class="py-2 pr-2 text-xs text-[#7FA3AA]">${empresaSelecionadaNome(x._empresaId)}</td>` : ""}
+      <td class="py-2 pr-2">${x.data}</td>
+      <td class="py-2 pr-2">
+        <span class="text-xs px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">transferência</span>
+      </td>
+      <td class="py-2 pr-2">${nomeConta(x.conta_origem_id)} → ${nomeConta(x.conta_destino_id)}</td>
+      <td class="py-2 pr-2">—</td>
+      <td class="py-2 pr-2 text-[#7FA3AA]">${x.descricao || ""}</td>
+      <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(x.valor_origem, mo)}${entrada}</td>
+      <td class="py-2 pr-2 text-xs text-[#5C7D84]"></td>
+      <td class="py-2 pr-2 text-right whitespace-nowrap">
+        <button class="text-red-400 hover:underline text-xs" data-excluir-transferencia="${x.id}" data-empresa-id="${x._empresaId}">excluir</button>
+      </td>
+    </tr>`;
+}
+
+// Transferência: "valor que entra" só aparece quando as contas têm moedas diferentes (câmbio)
+function atualizarFormTransferencia() {
+  const origem = Number(document.getElementById("selectContaOrigem").value);
+  const destino = Number(document.getElementById("selectContaDestino").value);
+  const inputOrigem = document.getElementById("inputValorOrigem");
+  const inputDestino = document.getElementById("inputValorDestino");
+  const taxa = document.getElementById("taxaCambio");
+  const mo = origem ? moedaConta(origem) : null;
+  const md = destino ? moedaConta(destino) : null;
+  inputOrigem.placeholder = mo ? `Valor que sai (${SIMBOLO_MOEDA[mo] || mo})` : "Valor que sai";
+  const cambio = mo && md && mo !== md;
+  inputDestino.classList.toggle("hidden", !cambio);
+  inputDestino.required = !!cambio;
+  inputDestino.placeholder = md ? `Valor que entra (${SIMBOLO_MOEDA[md] || md})` : "Valor que entra";
+  const vo = Number(inputOrigem.value), vd = Number(inputDestino.value);
+  if (cambio && vo > 0 && vd > 0) {
+    // Taxa sempre como "R$ por US$", independente do sentido
+    const reais = mo === "BRL" ? vo : vd, dolares = mo === "BRL" ? vd : vo;
+    taxa.textContent = `Câmbio: R$ ${(reais / dolares).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} por US$ 1`;
+    taxa.classList.remove("hidden");
+  } else {
+    taxa.classList.add("hidden");
+  }
+}
+["selectContaOrigem", "selectContaDestino"].forEach(id => document.getElementById(id).addEventListener("change", atualizarFormTransferencia));
+["inputValorOrigem", "inputValorDestino"].forEach(id => document.getElementById(id).addEventListener("input", atualizarFormTransferencia));
+
+document.getElementById("formTransferencia").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const dados = Object.fromEntries(new FormData(form).entries());
+  const body = {
+    conta_origem_id: Number(dados.conta_origem_id),
+    conta_destino_id: Number(dados.conta_destino_id),
+    valor_origem: Number(dados.valor_origem),
+    data: dados.data,
+    descricao: dados.descricao || null,
+  };
+  if (!document.getElementById("inputValorDestino").classList.contains("hidden")) body.valor_destino = Number(dados.valor_destino);
+  try {
+    await api("criar-transferencia", { method: "POST", body });
+    form.reset();
+    atualizarFormTransferencia();
+    await carregarTransacoes(filtrosAtuais());
+  } catch (e) {
+    mostrarErro(e.message);
+  }
+});
 
 function filtrosAtuais() {
   const filtros = {};
@@ -750,6 +882,46 @@ function atualizarRotuloValor() {
 }
 document.getElementById("selectConta").addEventListener("change", atualizarRotuloValor);
 
+// Edição: reaproveita o formulário de novo lançamento (editar-transacao faz update parcial)
+let editandoId = null;
+
+function entrarEdicao(t) {
+  if (!t) return;
+  editandoId = t.id;
+  const form = document.getElementById("formTransacao");
+  form.tipo.value = t.tipo;
+  form.tipo.dispatchEvent(new Event("change"));
+  form.conta_id.value = String(t.conta_id);
+  form.categoria_id.value = t.categoria_id ? String(t.categoria_id) : "";
+  form.valor.value = t.valor;
+  form.data.value = t.data;
+  form.descricao.value = t.descricao || "";
+  form.status.value = t.status;
+  // Não dá pra mover um lançamento pra conta de outra moeda (bloqueado no backend também)
+  const moeda = moedaConta(t.conta_id);
+  document.querySelectorAll("#selectConta option").forEach(opt => {
+    opt.disabled = !!opt.value && moedaConta(Number(opt.value)) !== moeda;
+  });
+  atualizarRotuloValor();
+  document.getElementById("tituloFormLancamento").textContent = `Editar lançamento de ${formatarData(t.data)}`;
+  document.getElementById("btnSalvarLancamento").textContent = "Salvar";
+  document.getElementById("btnCancelarEdicao").classList.remove("hidden");
+  document.getElementById("cardNovoLancamento").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function sairEdicao() {
+  editandoId = null;
+  const form = document.getElementById("formTransacao");
+  form.reset();
+  form.tipo.dispatchEvent(new Event("change"));
+  document.querySelectorAll("#selectConta option").forEach(opt => { opt.disabled = false; });
+  atualizarRotuloValor();
+  document.getElementById("tituloFormLancamento").textContent = "Novo lançamento";
+  document.getElementById("btnSalvarLancamento").textContent = "Adicionar";
+  document.getElementById("btnCancelarEdicao").classList.add("hidden");
+}
+document.getElementById("btnCancelarEdicao").addEventListener("click", sairEdicao);
+
 // Filtra o select de categoria pelo tipo escolhido no formulário de novo lançamento
 document.querySelector('#formTransacao [name="tipo"]').addEventListener("change", (e) => {
   const tipo = e.target.value;
@@ -765,13 +937,21 @@ document.getElementById("formTransacao").addEventListener("submit", async (e) =>
   e.preventDefault();
   const form = e.target;
   const dados = Object.fromEntries(new FormData(form).entries());
-  if (!dados.categoria_id) delete dados.categoria_id;
   dados.valor = Number(dados.valor);
 
   try {
-    await api("criar-transacao", { method: "POST", body: dados });
-    form.reset();
-    atualizarRotuloValor();
+    if (editandoId) {
+      // categoria vazia na edição = remover a categoria (null), não "manter a atual"
+      dados.categoria_id = dados.categoria_id ? Number(dados.categoria_id) : null;
+      dados.conta_id = Number(dados.conta_id);
+      await api("editar-transacao", { method: "POST", body: { id: editandoId, ...dados } });
+      sairEdicao();
+    } else {
+      if (!dados.categoria_id) delete dados.categoria_id;
+      await api("criar-transacao", { method: "POST", body: dados });
+      form.reset();
+      atualizarRotuloValor();
+    }
     await carregarTransacoes(filtrosAtuais());
   } catch (e) {
     mostrarErro(e.message);

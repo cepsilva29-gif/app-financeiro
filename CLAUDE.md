@@ -93,9 +93,11 @@ owner. Keep new docs and UI copy in Portuguese too.
   label only (internal `data-tab`/`id`/function/endpoint names all still say "resumo", see below),
   then rebuilt as KPI tiles + Chart.js charts (donut, grouped bar, horizontal bar) instead of plain
   numbers/lists, on explicit user request ("como power bi"). See "Dashboard" under Frontend below.
-- **Moeda por conta (R$/US$) — etapas 1 e 2 done** (2026-09-28) — each conta has a moeda,
+- **Moeda por conta (R$/US$) — etapas 1, 2 e 3 done** (2026-09-28) — each conta has a moeda,
   Dashboard totals are kept per moeda; USD lançamentos store the PTAX of their date and the
-  Dashboard offers a "Consolidado em R$" view. See "Moeda por conta" below.
+  Dashboard offers a "Consolidado em R$" view; transfers/câmbio between contas live in their own
+  table. See "Moeda por conta", "Transferências" and "Edição de lançamento" below. Same day: an
+  edit UI for lançamentos, and superseded workflow copies were deleted from n8n.
 - **Hotmart integration — done, wired to real credentials, verified end-to-end** (2026-09-21) —
   `13-hotmart-vendas` logs Hotmart's 4 purchase-lifecycle webhook events (approved/canceled/
   refunded/chargeback) and deactivates the matching empresa (by e-mail match) on the latter 3.
@@ -220,7 +222,11 @@ Only `previsto` vs `confirmado` status exists; `resumo-periodo` and account bala
   cascading or nulling `categoria_id` (`transacoes.conta_id` is `not null` anyway). Generated from
   `06-excluir-transacao.json`'s prefix nodes by a one-off script, not by `n8n_lib.mjs`. Verified
   live against a disposable empresa (409 in-use, 200 free, 404 repeat/foreign/no-id, 401 no
-  token, 403 foreign `empresa_id`), then deleted.
+  token, 403 foreign `empresa_id`), then deleted. Since the transferências work, `15-excluir-conta`
+  also counts `transferencias` using the conta (origem or destino) — `Checar Uso` →
+  `Verificar Transferencias` → `Checar Transferencias` → `Em Uso?`, message lists both counts.
+- **`16-criar-transferencia`** / **`17-listar-transferencias`** / **`18-excluir-transferencia`**
+  — see "Transferências" below.
 - **`11-onboarding`** (`POST /webhook/financeiro/onboarding`, Fase 5) — the one workflow that does
   **not** use `buildAuthPrefix()`/`X-Empresa-Token`, because it creates an empresa rather than
   acting on one that already exists. Protected instead by n8n's built-in webhook `authentication:
@@ -280,8 +286,9 @@ with the conta's moeda.
   and the detail table show only `moedaDashboard`, picked via `#resumoMoeda` (the
   `#blocoMoedaDashboard` wrapper is hidden unless 2+ moedas exist, so a BRL-only empresa sees the
   same Dashboard as before). Switching moeda re-renders without refetching.
-- **Deploy**: the 3 workflows were replaced by deactivate-old → create-new → activate (old
-  versions left **deactivated**, not deleted, on the n8n instance). Backend is backward compatible
+- **Deploy**: the 3 workflows were replaced by deactivate-old → create-new → activate (the
+  superseded versions were deleted from n8n afterward — each workflow name has exactly one copy
+  there, the active one). Backend is backward compatible
   with the previous frontend, so deploy order didn't matter.
 - **Verified live** (disposable empresa, deleted afterward): BRL 1000+5000−2000 = 4000 and USD
   200+1000−50 = 1150 saldo por conta; totals R$ 5000/2000 and US$ 1000/50 kept separate; editar
@@ -340,8 +347,62 @@ with the conta's moeda.
   10.176,31; saldo Wise 1.161×5,2132 = 6.052,53); null cotação → current-PTAX fallback counted;
   BRL-only empresa → no HTTP call, no selector. In the browser: table conversions, cotação button
   (manual and blank → Sunday 20/09 used Friday 18/09 = 5,1575), consolidated charts/nota/KPIs.
-- **Possible etapa 3**: transfer/câmbio between contas (today a R$→US$ exchange must be entered
-  as a despesa + a receita, which inflates both totals).
+- **Etapa 3** (transfer/câmbio between contas): done — see "Transferências" below.
+
+### Transferências (câmbio entre contas)
+
+Added 2026-09-28 (etapa 3 of the dollar work). Moves money between two contas of the same
+empresa; if the contas have different moedas it's a câmbio and **both amounts are entered** (what
+left the origem, what arrived in the destino) — the rate is implied, never stored or fetched.
+
+- **Separate table `transferencias`**, not rows in `transacoes`, on purpose: a transfer is neither
+  receita nor despesa, and every existing total does `tipo === 'receita' ? … : despesas` — a new
+  `tipo` value there would silently land in despesas. Columns: `conta_origem_id`,
+  `conta_destino_id` (check `<>`), `valor_origem` (origem's moeda), `valor_destino` (destino's
+  moeda), `data`, `descricao`. No status (always effective), no edit workflow (exclude + recreate).
+- **`16-criar-transferencia`** (`POST`): validates, then `Buscar Contas` (all the empresa's
+  contas) → `Checar Contas`: both must belong to the empresa (422); same moeda → `valor_destino`
+  is forced to `valor_origem` (a sent value is ignored); different moedas → `valor_destino`
+  required (422 with the two moedas in the message). **`17-listar-transferencias`** (`GET`,
+  optional `periodo_inicio`/`periodo_fim`/`conta_id` — conta matches either side, filtered in the
+  Code node). **`18-excluir-transferencia`** (`POST {id}`, 404 absent/foreign, same shape as `06`).
+  All three built from `06-excluir-transacao.json`'s prefix nodes by a script, like 14/15.
+- **`07-resumo-periodo`**: `Calcular Resumo` → `Buscar Transferencias` → `Aplicar Transferencias`
+  (subtracts `valor_origem` from origem, adds `valor_destino` to destino, respecting
+  `periodo_fim`) → `Tem Moeda Estrangeira?` → … `Consolidar em BRL` now reads
+  `$('Aplicar Transferencias')` instead of `$('Calcular Resumo')`. Totals by moeda / consolidated
+  receitas-despesas are untouched by transfers; only `saldo_por_conta` (and its consolidated
+  version) changes.
+- **Frontend**: collapsible `#cardTransferencia` (`<details>`, `data-form-empresa-unica`) under
+  "Novo lançamento"; `#inputValorDestino` only shows (and is `required`) when origem/destino moedas
+  differ, and `#taxaCambio` shows the implied rate as "R$ X por US$ 1" either direction.
+  `carregarTransacoes()` also calls `listar-transferencias` per empresa and merges them into the
+  table (`_transferencia: true` rows rendered by `linhaTransferencia()`, sky-blue "transferência"
+  badge, "Origem → Destino", "US$ 100,00 → R$ 520,00" for câmbio). Tipo filter gained
+  "Transferência"; receita/despesa filters skip the transfers call, "transferencia" skips
+  `listar-transacoes`. `state.transacoes` still holds only transações (edit/cotação look-ups use
+  it); transfers live in `state.transferencias`.
+- **Verified live** (disposable empresa, deleted afterward): câmbio R$ 5.000 → US$ 920 and same-moeda
+  transfer (sent `valor_destino` 999 ignored → 300); errors: câmbio without `valor_destino` 422, same
+  conta 400, foreign conta 422, valor 0 400, no token 401; list filters by conta and period;
+  saldos hand-checked (Itaú 10.000+2.000−5.000−300 = 6.700; Wise 920−100 = US$ 820 → R$ 4.274,82 at
+  5,2132; `periodo_fim` before the transfers → untouched balances); totals unchanged by transfers;
+  excluir-conta with transfers → 409 listing both counts, 200 after the transfer was excluded. In the
+  browser: câmbio form (placeholders per moeda, rate "R$ 5,2000 por US$ 1"), merged table rows, tipo
+  filter, excluir transferência, Dashboard balances.
+
+### Edição de lançamento (frontend)
+
+Added 2026-09-28 — `05-editar-transacao` existed since Fase 2 but had no UI. An **"editar"** button
+per row (hidden in the multi-empresa combined view, where the form itself is hidden) calls
+`entrarEdicao(t)`, which reuses `#formTransacao`: fills every field, retitles it "Editar lançamento
+de dd/mm/aaaa", swaps the button to "Salvar", shows `#btnCancelarEdicao`, and **disables every conta
+option in a different moeda** (the backend also rejects that move with 422). Submit sends
+`editar-transacao` with all fields — an empty categoria is sent as `null` (clears it), not omitted.
+`sairEdicao()` restores the form; `recarregarTudo()` calls it so switching empresa mid-edit can't
+save onto the wrong one. Changing the date of a USD lançamento re-fetches its PTAX (backend rule).
+Verified in the browser: fill/disable/cancel, BRL edit (valor + clearing categoria), USD date change
+→ cotação 25/09 5,1991 replaced by 22/09 5,1161.
 
 ### Onboarding email (Resend)
 

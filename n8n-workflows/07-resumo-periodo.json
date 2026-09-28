@@ -456,7 +456,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        800,
+        1200,
         -80
       ]
     },
@@ -489,7 +489,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        200,
+        600,
         -80
       ]
     },
@@ -505,7 +505,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        400,
+        800,
         -160
       ],
       "continueOnFail": true,
@@ -513,14 +513,59 @@
     },
     {
       "parameters": {
-        "jsCode": "const r = $('Calcular Resumo').first().json;\nconst q = $('Webhook').first().json.query || {};\nconst contas = $('Buscar Contas (Supabase)').all().map(i => i.json).filter(x => x && x.id);\nconst transacoes = $('Buscar Transacoes (Supabase)').all().map(i => i.json).filter(x => x && x.id);\nconst moedaDaConta = Object.fromEntries(contas.map(c => [c.id, c.moeda || 'BRL']));\nconst temEstrangeira = contas.some(c => (c.moeda || 'BRL') !== 'BRL');\n// Cotação atual: último boletim PTAX (só buscado quando existe conta não-BRL)\nlet cotacaoAtual = null;\nif (temEstrangeira) {\n  const boletins = Array.isArray(($input.first().json || {}).value) ? $input.first().json.value : [];\n  const ultimo = boletins[boletins.length - 1];\n  if (ultimo) cotacaoAtual = { valor: Number(ultimo.cotacaoVenda), data: String(ultimo.dataHoraCotacao).slice(0, 10) };\n}\nconst emPeriodo = t => (!q.periodo_inicio || t.data >= q.periodo_inicio) && (!q.periodo_fim || t.data <= q.periodo_fim);\n// Lançamento: converte pela cotação da própria data; sem cotação (pendente) → cotação atual\nlet semCotacao = 0, naoConvertidos = 0;\nconst emReais = t => {\n  const m = moedaDaConta[t.conta_id] || 'BRL';\n  if (m === 'BRL') return Number(t.valor);\n  if (t.cotacao !== null && t.cotacao !== undefined) return Number(t.valor) * Number(t.cotacao);\n  if (cotacaoAtual) { semCotacao++; return Number(t.valor) * cotacaoAtual.valor; }\n  naoConvertidos++; return 0;\n};\nconst totais = { receitas: 0, despesas: 0, saldo: 0 };\nconst porCat = {};\nfor (const t of transacoes.filter(emPeriodo)) {\n  const v = emReais(t);\n  totais[t.tipo === 'receita' ? 'receitas' : 'despesas'] += v;\n  const key = t.categoria_id === null || t.categoria_id === undefined ? 'sem_categoria' : t.categoria_id;\n  if (!porCat[key]) porCat[key] = { categoria_id: t.categoria_id, receita: 0, despesa: 0 };\n  porCat[key][t.tipo] += v;\n}\ntotais.saldo = totais.receitas - totais.despesas;\n// Saldo de conta estrangeira = quanto vale hoje → cotação atual\nconst saldoPorConta = r.saldo_por_conta.map(c => {\n  if (c.moeda === 'BRL') return { ...c, saldo_original: c.saldo };\n  if (!cotacaoAtual) { naoConvertidos++; return { ...c, saldo_original: c.saldo, saldo: 0 }; }\n  return { ...c, saldo_original: c.saldo, saldo: c.saldo * cotacaoAtual.valor };\n});\nreturn [{ json: { ...r, consolidado: {\n  moeda: 'BRL',\n  disponivel: naoConvertidos === 0,\n  cotacao_atual: cotacaoAtual,\n  lancamentos_pela_cotacao_atual: semCotacao,\n  totais,\n  por_categoria: Object.values(porCat),\n  saldo_por_conta: saldoPorConta\n} } }];"
+        "jsCode": "const r = $('Aplicar Transferencias').first().json;\nconst q = $('Webhook').first().json.query || {};\nconst contas = $('Buscar Contas (Supabase)').all().map(i => i.json).filter(x => x && x.id);\nconst transacoes = $('Buscar Transacoes (Supabase)').all().map(i => i.json).filter(x => x && x.id);\nconst moedaDaConta = Object.fromEntries(contas.map(c => [c.id, c.moeda || 'BRL']));\nconst temEstrangeira = contas.some(c => (c.moeda || 'BRL') !== 'BRL');\n// Cotação atual: último boletim PTAX (só buscado quando existe conta não-BRL)\nlet cotacaoAtual = null;\nif (temEstrangeira) {\n  const boletins = Array.isArray(($input.first().json || {}).value) ? $input.first().json.value : [];\n  const ultimo = boletins[boletins.length - 1];\n  if (ultimo) cotacaoAtual = { valor: Number(ultimo.cotacaoVenda), data: String(ultimo.dataHoraCotacao).slice(0, 10) };\n}\nconst emPeriodo = t => (!q.periodo_inicio || t.data >= q.periodo_inicio) && (!q.periodo_fim || t.data <= q.periodo_fim);\n// Lançamento: converte pela cotação da própria data; sem cotação (pendente) → cotação atual\nlet semCotacao = 0, naoConvertidos = 0;\nconst emReais = t => {\n  const m = moedaDaConta[t.conta_id] || 'BRL';\n  if (m === 'BRL') return Number(t.valor);\n  if (t.cotacao !== null && t.cotacao !== undefined) return Number(t.valor) * Number(t.cotacao);\n  if (cotacaoAtual) { semCotacao++; return Number(t.valor) * cotacaoAtual.valor; }\n  naoConvertidos++; return 0;\n};\nconst totais = { receitas: 0, despesas: 0, saldo: 0 };\nconst porCat = {};\nfor (const t of transacoes.filter(emPeriodo)) {\n  const v = emReais(t);\n  totais[t.tipo === 'receita' ? 'receitas' : 'despesas'] += v;\n  const key = t.categoria_id === null || t.categoria_id === undefined ? 'sem_categoria' : t.categoria_id;\n  if (!porCat[key]) porCat[key] = { categoria_id: t.categoria_id, receita: 0, despesa: 0 };\n  porCat[key][t.tipo] += v;\n}\ntotais.saldo = totais.receitas - totais.despesas;\n// Saldo de conta estrangeira = quanto vale hoje → cotação atual\nconst saldoPorConta = r.saldo_por_conta.map(c => {\n  if (c.moeda === 'BRL') return { ...c, saldo_original: c.saldo };\n  if (!cotacaoAtual) { naoConvertidos++; return { ...c, saldo_original: c.saldo, saldo: 0 }; }\n  return { ...c, saldo_original: c.saldo, saldo: c.saldo * cotacaoAtual.valor };\n});\nreturn [{ json: { ...r, consolidado: {\n  moeda: 'BRL',\n  disponivel: naoConvertidos === 0,\n  cotacao_atual: cotacaoAtual,\n  lancamentos_pela_cotacao_atual: semCotacao,\n  totais,\n  por_categoria: Object.values(porCat),\n  saldo_por_conta: saldoPorConta\n} } }];"
       },
       "id": "3f1e9d87-0b7a-471c-93e9-7c7eaf1884a5",
       "name": "Consolidar em BRL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        600,
+        1000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "transferencias",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "empresa_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Checar Empresa').first().json.empresa_id }}"
+            }
+          ]
+        }
+      },
+      "id": "62cd47aa-5ccd-4d8d-b199-3b7c05e59fc8",
+      "name": "Buscar Transferencias (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -80
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "aYsNFdB5mXwMqYVO",
+          "name": "Supabase - app_financeiro"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('Calcular Resumo').first().json;\nconst q = $('Webhook').first().json.query || {};\nconst ateFim = t => !q.periodo_fim || t.data <= q.periodo_fim;\nconst transf = $input.all().map(i => i.json).filter(x => x && x.id && ateFim(x));\n// Transferência não é receita nem despesa: só tira da origem e põe no destino (cada um na sua moeda)\nconst saldoPorConta = r.saldo_por_conta.map(c => {\n  const saiu = transf.filter(t => t.conta_origem_id === c.conta_id).reduce((s, t) => s + Number(t.valor_origem), 0);\n  const entrou = transf.filter(t => t.conta_destino_id === c.conta_id).reduce((s, t) => s + Number(t.valor_destino), 0);\n  return { ...c, saldo: c.saldo - saiu + entrou };\n});\nreturn [{ json: { ...r, saldo_por_conta: saldoPorConta } }];"
+      },
+      "id": "6a6d50d4-d0b4-4e5b-b032-ccd0d5b1682c",
+      "name": "Aplicar Transferencias",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
         -80
       ]
     }
@@ -695,7 +740,7 @@
       "main": [
         [
           {
-            "node": "Tem Moeda Estrangeira?",
+            "node": "Buscar Transferencias (Supabase)",
             "type": "main",
             "index": 0
           }
@@ -736,6 +781,28 @@
         [
           {
             "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Transferencias (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Aplicar Transferencias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aplicar Transferencias": {
+      "main": [
+        [
+          {
+            "node": "Tem Moeda Estrangeira?",
             "type": "main",
             "index": 0
           }

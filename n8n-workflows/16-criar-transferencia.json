@@ -1,16 +1,16 @@
 {
-  "name": "financeiro - excluir-conta",
+  "name": "financeiro - criar-transferencia",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "financeiro/excluir-conta",
+        "path": "financeiro/criar-transferencia",
         "responseMode": "responseNode",
         "options": {
           "allowedOrigins": "*"
         }
       },
-      "id": "8d5fcd42-8666-4916-9026-662d15050cbe",
+      "id": "e292c49e-b79c-4b5c-892a-4a206603fe5c",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -18,7 +18,7 @@
         -1200,
         0
       ],
-      "webhookId": "79e06ad8-09e3-4ad2-a95e-2a729283a379"
+      "webhookId": "436cd6de-b8a0-434a-925e-37c82cb18e71"
     },
     {
       "parameters": {
@@ -44,7 +44,7 @@
         },
         "options": {}
       },
-      "id": "d4acfda7-d634-4986-bfee-3c076439291f",
+      "id": "2b5144a3-7c0a-4fae-88ba-2130a4801c69",
       "name": "Token Presente?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -69,7 +69,7 @@
           "responseCode": 401
         }
       },
-      "id": "056ac133-c54e-4559-8b3b-977c8830dc50",
+      "id": "8d773c5c-0f16-49c9-be8f-146d0c966e56",
       "name": "Responder Token Ausente",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -99,7 +99,7 @@
           ]
         }
       },
-      "id": "46ee301b-74b0-4aab-afc3-8dd65b8f16eb",
+      "id": "a06d1c45-8495-4aa8-986b-1176277a795d",
       "name": "Resolver Empresa",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -119,7 +119,7 @@
       "parameters": {
         "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nif (rows.length === 0) return [{ json: { encontrada: false } }];\nreturn [{ json: { encontrada: true, empresa_id: rows[0].id, empresa: rows[0] } }];"
       },
-      "id": "38dce7b7-6a46-47ca-ba21-a81e17fc5b9b",
+      "id": "1c0a77a4-bccd-4085-be6e-2286f1fc8473",
       "name": "Checar Empresa Token",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -152,7 +152,7 @@
         },
         "options": {}
       },
-      "id": "580aaeb6-dccc-453c-a7d7-7729f45a6ab9",
+      "id": "67493b88-6515-4f0d-a4fc-a4e4db942f3e",
       "name": "Empresa Encontrada?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -177,7 +177,7 @@
           "responseCode": 401
         }
       },
-      "id": "059cc692-9ac4-47c2-833d-81993c8b3c51",
+      "id": "a5b65cf0-b1b1-48a0-a5b7-b07eaccdb274",
       "name": "Responder Token Invalido",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -190,7 +190,7 @@
       "parameters": {
         "jsCode": "const w = $('Webhook').first().json;\nconst raw = (w.body && w.body.empresa_id !== undefined) ? w.body.empresa_id : ((w.query && w.query.empresa_id !== undefined) ? w.query.empresa_id : undefined);\nconst tokenEmpresa = $('Checar Empresa Token').first().json.empresa;\nconst alvo = (raw !== undefined && raw !== null && raw !== '') ? Number(raw) : tokenEmpresa.id;\nif (!Number.isFinite(alvo) || alvo === tokenEmpresa.id) return [{ json: { precisaVerificar: false, empresa_id: tokenEmpresa.id, empresa: tokenEmpresa } }];\nreturn [{ json: { precisaVerificar: true, empresa_id_alvo: alvo, empresa_token_id: tokenEmpresa.id } }];"
       },
-      "id": "75a9b6bd-7acb-46e6-a828-d9891c359796",
+      "id": "1678cc05-511a-41cd-8445-e7772bf05567",
       "name": "Determinar Alvo",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -223,7 +223,7 @@
         },
         "options": {}
       },
-      "id": "2cb41893-6b86-4173-a025-fc6bb99e8bd5",
+      "id": "5ed73b75-568c-4f5f-bcaf-2fc8b3387fa1",
       "name": "Precisa Verificar Alvo?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -253,7 +253,7 @@
           ]
         }
       },
-      "id": "84f67dbc-03c3-4326-8550-ec9d5bb63c13",
+      "id": "8c9d8e5a-bac0-46ec-b2bc-59f817393c6a",
       "name": "Resolver Empresa Alvo",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
@@ -273,7 +273,7 @@
       "parameters": {
         "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nconst tokenEmpresaId = $('Determinar Alvo').first().json.empresa_token_id;\nif (rows.length === 0) return [{ json: { permitido: false } }];\nconst alvo = rows[0];\nreturn [{ json: { permitido: alvo.matriz_id === tokenEmpresaId, empresa_id: alvo.id, empresa: alvo } }];"
       },
-      "id": "5d046ca7-d762-4145-8c25-a299432ad3c6",
+      "id": "d2c7f811-90fd-4a9c-b2a8-0b76cea5f331",
       "name": "Checar Permissao Filial",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -306,7 +306,7 @@
         },
         "options": {}
       },
-      "id": "fafa6f85-47b5-4668-8006-b6d44cc72b14",
+      "id": "42c7f492-ca07-4607-a554-4e61d8d8e7fc",
       "name": "Permitido?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -331,7 +331,7 @@
           "responseCode": 403
         }
       },
-      "id": "fc778c7e-2213-4838-9660-52fadd4a2f30",
+      "id": "30f380b3-398e-498a-83b5-c89f1c32a374",
       "name": "Responder Sem Permissao",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -344,7 +344,7 @@
       "parameters": {
         "jsCode": "return [{ json: { encontrada: true, empresa_id: $json.empresa_id, ...$json.empresa } }];"
       },
-      "id": "cb2e8f6f-e6c3-4028-aa28-3d7188679790",
+      "id": "0ef7d645-1bba-47f7-ab31-31875d305b4a",
       "name": "Checar Empresa",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -355,48 +355,44 @@
     },
     {
       "parameters": {
-        "operation": "getAll",
-        "tableId": "contas",
-        "returnAll": true,
-        "matchType": "allFilters",
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "id",
-              "condition": "eq",
-              "keyValue": "={{ Number($('Webhook').first().json.body.id) || 0 }}"
-            },
-            {
-              "keyName": "empresa_id",
-              "condition": "eq",
-              "keyValue": "={{ $('Checar Empresa').first().json.empresa_id }}"
-            }
-          ]
-        }
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst origem = Number(body.conta_origem_id);\nconst destino = Number(body.conta_destino_id);\nconst valorOrigem = Number(body.valor_origem);\nconst valorDestino = body.valor_destino === undefined || body.valor_destino === null || body.valor_destino === '' ? null : Number(body.valor_destino);\nconst data = body.data;\nif (!Number.isFinite(origem)) erros.push('conta_origem_id');\nif (!Number.isFinite(destino)) erros.push('conta_destino_id');\nif (!Number.isFinite(valorOrigem) || valorOrigem <= 0) erros.push('valor_origem');\nif (valorDestino !== null && !(Number.isFinite(valorDestino) && valorDestino > 0)) erros.push('valor_destino');\nif (!data || !/^\\d{4}-\\d{2}-\\d{2}$/.test(data)) erros.push('data');\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nif (origem === destino) return [{ json: { valido: false, erro: 'A conta de origem e a de destino precisam ser diferentes.' } }];\nreturn [{ json: { valido: true, empresa_id: $('Checar Empresa').first().json.empresa_id, conta_origem_id: origem, conta_destino_id: destino, valor_origem: valorOrigem, valor_destino: valorDestino, data, descricao: body.descricao || null } }];"
       },
-      "id": "97e33822-9c39-43a1-a5dd-2d9af766e4f0",
-      "name": "Verificar Conta (Supabase)",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
+      "id": "3ab649da-ce1c-4bb1-adef-e03d7b6fad5b",
+      "name": "Validar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1000,
         -80
-      ],
-      "alwaysOutputData": true,
-      "credentials": {
-        "supabaseApi": {
-          "id": "aYsNFdB5mXwMqYVO",
-          "name": "Supabase - app_financeiro"
-        }
-      }
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { encontrada: rows.length > 0 } }];"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
-      "id": "331b498d-6659-47a0-823f-ca601be897e4",
-      "name": "Checar Conta",
-      "type": "n8n-nodes-base.code",
+      "id": "98c36031-2011-4c14-a3a3-1b7bf487e186",
+      "name": "Dados Validos?",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
         1200,
@@ -405,41 +401,8 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 1
-          },
-          "conditions": [
-            {
-              "id": "c1",
-              "leftValue": "={{ $json.encontrada }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "a59f164a-25a6-4ae1-9187-56b08a53941b",
-      "name": "Conta Encontrada?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1400,
-        -80
-      ]
-    },
-    {
-      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ {\"sucesso\":false,\"mensagem\":\"Conta nao encontrada nesta empresa.\"} }}",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": $json.erro } }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -449,45 +412,40 @@
               }
             ]
           },
-          "responseCode": 404
+          "responseCode": 400
         }
       },
-      "id": "ddcdf999-6cc9-494c-95fd-0bd4816f713f",
-      "name": "Responder Conta Nao Encontrada",
+      "id": "a1fa885c-bb67-4fa0-8906-403c53a3e146",
+      "name": "Responder Invalido",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1600,
+        1400,
         150
       ]
     },
     {
       "parameters": {
         "operation": "getAll",
-        "tableId": "transacoes",
+        "tableId": "contas",
         "returnAll": true,
         "matchType": "allFilters",
         "filters": {
           "conditions": [
             {
-              "keyName": "conta_id",
-              "condition": "eq",
-              "keyValue": "={{ Number($('Webhook').first().json.body.id) || 0 }}"
-            },
-            {
               "keyName": "empresa_id",
               "condition": "eq",
-              "keyValue": "={{ $('Checar Empresa').first().json.empresa_id }}"
+              "keyValue": "={{ $('Validar Dados').first().json.empresa_id }}"
             }
           ]
         }
       },
-      "id": "f25e5e37-aec1-4201-8ef3-6b63598e69a9",
-      "name": "Verificar Uso (Supabase)",
+      "id": "bb7947bd-65c2-4f19-a690-690bdb255270",
+      "name": "Buscar Contas (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1600,
+        1400,
         -160
       ],
       "alwaysOutputData": true,
@@ -500,11 +458,44 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { emUso: rows.length > 0, quantidade: rows.length } }];"
+        "jsCode": "const v = $('Validar Dados').first().json;\nconst contas = $input.all().map(i => i.json).filter(r => r && r.id);\nconst origem = contas.find(c => c.id === v.conta_origem_id);\nconst destino = contas.find(c => c.id === v.conta_destino_id);\nif (!origem || !destino) return [{ json: { valido: false, erro: 'Conta de origem ou destino nao existe ou nao pertence a esta empresa.' } }];\nconst moedaOrigem = origem.moeda || 'BRL';\nconst moedaDestino = destino.moeda || 'BRL';\nlet valorDestino = v.valor_destino;\nif (moedaOrigem === moedaDestino) valorDestino = v.valor_origem; // mesma moeda: entra exatamente o que sai\nelse if (valorDestino === null) return [{ json: { valido: false, erro: 'Contas em moedas diferentes (' + moedaOrigem + ' para ' + moedaDestino + '): informe valor_destino (quanto entrou na conta de destino).' } }];\nreturn [{ json: { valido: true, valor_destino: valorDestino } }];"
       },
-      "id": "563e0836-e7b3-4e93-8faf-3136e8a7763d",
-      "name": "Checar Uso",
+      "id": "d97bee54-3ab0-4a7a-9829-6fcb114b74ea",
+      "name": "Checar Contas",
       "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ffe7c105-000b-4b9a-a2fb-1e70fe465ae7",
+      "name": "Contas Validas?",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
         1800,
@@ -513,41 +504,8 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 1
-          },
-          "conditions": [
-            {
-              "id": "c1",
-              "leftValue": "={{ $json.emUso }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "0b5ef2b8-1d22-4417-98df-448919455531",
-      "name": "Em Uso?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2000,
-        -160
-      ]
-    },
-    {
-      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"Nao e possivel excluir: conta usada em \" + $json.quantidade + \" lancamento(s) e \" + $json.transferencias + \" transferencia(s). Exclua esses registros antes.\" } }}",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": $json.erro } }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -557,48 +515,62 @@
               }
             ]
           },
-          "responseCode": 409
+          "responseCode": 422
         }
       },
-      "id": "bfc04b6f-56a1-443c-a566-727e41ccc5f9",
-      "name": "Responder Em Uso",
+      "id": "e7ff9063-78a4-4eb9-802d-cf93a7763fea",
+      "name": "Responder Conta Invalida",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        2200,
-        0
+        2000,
+        50
       ]
     },
     {
       "parameters": {
-        "operation": "delete",
-        "tableId": "contas",
-        "filterType": "manual",
-        "matchType": "allFilters",
-        "filters": {
-          "conditions": [
+        "tableId": "transferencias",
+        "fieldsUi": {
+          "fieldValues": [
             {
-              "keyName": "id",
-              "condition": "eq",
-              "keyValue": "={{ Number($('Webhook').first().json.body.id) || 0 }}"
+              "fieldId": "empresa_id",
+              "fieldValue": "={{ $('Validar Dados').first().json.empresa_id }}"
             },
             {
-              "keyName": "empresa_id",
-              "condition": "eq",
-              "keyValue": "={{ $('Checar Empresa').first().json.empresa_id }}"
+              "fieldId": "conta_origem_id",
+              "fieldValue": "={{ $('Validar Dados').first().json.conta_origem_id }}"
+            },
+            {
+              "fieldId": "conta_destino_id",
+              "fieldValue": "={{ $('Validar Dados').first().json.conta_destino_id }}"
+            },
+            {
+              "fieldId": "valor_origem",
+              "fieldValue": "={{ $('Validar Dados').first().json.valor_origem }}"
+            },
+            {
+              "fieldId": "valor_destino",
+              "fieldValue": "={{ $('Checar Contas').first().json.valor_destino }}"
+            },
+            {
+              "fieldId": "data",
+              "fieldValue": "={{ $('Validar Dados').first().json.data }}"
+            },
+            {
+              "fieldId": "descricao",
+              "fieldValue": "={{ $('Validar Dados').first().json.descricao }}"
             }
           ]
         }
       },
-      "id": "5bb552b8-35cd-4d71-8a16-427cf725a9eb",
-      "name": "Excluir Conta (Supabase)",
+      "id": "90e80455-0051-4adb-b8e9-81e3dd5e8582",
+      "name": "Criar Transferencia (Supabase)",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        2200,
+        2000,
         -240
       ],
-      "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
           "id": "aYsNFdB5mXwMqYVO",
@@ -609,7 +581,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ {\"sucesso\":true,\"mensagem\":\"Conta excluida.\"} }}",
+        "responseBody": "={{ { \"sucesso\": true, \"transferencia\": $json } }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -619,61 +591,16 @@
               }
             ]
           },
-          "responseCode": 200
+          "responseCode": 201
         }
       },
-      "id": "095cfc8a-f986-475b-b622-c141cfbc3f7d",
+      "id": "d3e94d6f-38d4-4dff-be34-b27f6622da1a",
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        2400,
+        2200,
         -240
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "getAll",
-        "tableId": "transferencias",
-        "returnAll": true,
-        "matchType": "allFilters",
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "empresa_id",
-              "condition": "eq",
-              "keyValue": "={{ $('Checar Empresa').first().json.empresa_id }}"
-            }
-          ]
-        }
-      },
-      "id": "15343afe-5114-4f96-92f0-90024a261096",
-      "name": "Verificar Transferencias (Supabase)",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        1900,
-        -300
-      ],
-      "alwaysOutputData": true,
-      "credentials": {
-        "supabaseApi": {
-          "id": "aYsNFdB5mXwMqYVO",
-          "name": "Supabase - app_financeiro"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const uso = $('Checar Uso').first().json;\nconst id = Number($('Webhook').first().json.body.id) || 0;\nconst n = $input.all().map(i => i.json).filter(t => t && t.id && (t.conta_origem_id === id || t.conta_destino_id === id)).length;\nreturn [{ json: { emUso: uso.emUso || n > 0, quantidade: uso.quantidade, transferencias: n } }];"
-      },
-      "id": "fb5d0b5f-e24c-4a84-9260-6428d3d684d3",
-      "name": "Checar Transferencias",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2000,
-        -300
       ]
     }
   ],
@@ -820,120 +747,87 @@
       "main": [
         [
           {
-            "node": "Verificar Conta (Supabase)",
+            "node": "Validar Dados",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Verificar Conta (Supabase)": {
+    "Validar Dados": {
       "main": [
         [
           {
-            "node": "Checar Conta",
+            "node": "Dados Validos?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Checar Conta": {
+    "Dados Validos?": {
       "main": [
         [
           {
-            "node": "Conta Encontrada?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Conta Encontrada?": {
-      "main": [
-        [
-          {
-            "node": "Verificar Uso (Supabase)",
+            "node": "Buscar Contas (Supabase)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Responder Conta Nao Encontrada",
+            "node": "Responder Invalido",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Verificar Uso (Supabase)": {
+    "Buscar Contas (Supabase)": {
       "main": [
         [
           {
-            "node": "Checar Uso",
+            "node": "Checar Contas",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Checar Uso": {
+    "Checar Contas": {
       "main": [
         [
           {
-            "node": "Verificar Transferencias (Supabase)",
+            "node": "Contas Validas?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Em Uso?": {
+    "Contas Validas?": {
       "main": [
         [
           {
-            "node": "Responder Em Uso",
+            "node": "Criar Transferencia (Supabase)",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Excluir Conta (Supabase)",
+            "node": "Responder Conta Invalida",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Excluir Conta (Supabase)": {
+    "Criar Transferencia (Supabase)": {
       "main": [
         [
           {
             "node": "Responder Sucesso",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Verificar Transferencias (Supabase)": {
-      "main": [
-        [
-          {
-            "node": "Checar Transferencias",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Checar Transferencias": {
-      "main": [
-        [
-          {
-            "node": "Em Uso?",
             "type": "main",
             "index": 0
           }
