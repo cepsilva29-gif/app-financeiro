@@ -93,8 +93,9 @@ owner. Keep new docs and UI copy in Portuguese too.
   label only (internal `data-tab`/`id`/function/endpoint names all still say "resumo", see below),
   then rebuilt as KPI tiles + Chart.js charts (donut, grouped bar, horizontal bar) instead of plain
   numbers/lists, on explicit user request ("como power bi"). See "Dashboard" under Frontend below.
-- **Moeda por conta (R$/US$) — etapa 1 done** (2026-09-28) — each conta has a moeda, Dashboard
-  totals are kept per moeda. See "Moeda por conta" below. Etapa 2 (cotação/consolidado) pending.
+- **Moeda por conta (R$/US$) — etapas 1 e 2 done** (2026-09-28) — each conta has a moeda,
+  Dashboard totals are kept per moeda; USD lançamentos store the PTAX of their date and the
+  Dashboard offers a "Consolidado em R$" view. See "Moeda por conta" below.
 - **Hotmart integration — done, wired to real credentials, verified end-to-end** (2026-09-21) —
   `13-hotmart-vendas` logs Hotmart's 4 purchase-lifecycle webhook events (approved/canceled/
   refunded/chargeback) and deactivates the matching empresa (by e-mail match) on the latter 3.
@@ -249,7 +250,7 @@ Only `previsto` vs `confirmado` status exists; `resumo-periodo` and account bala
   `resumo-periodo`, which does read a sibling branch's output and relies on it having already run
   — that pattern is only safe because it was verified working, not because n8n guarantees it).
 
-### Moeda por conta (etapa 1 do suporte a dólar)
+### Moeda por conta (suporte a dólar, etapas 1 e 2)
 
 Added 2026-09-28. The user wants lançamentos in both R$ and US$, shown in the Dashboard. Design
 chosen and approved: **the moeda belongs to the conta, not the lançamento** — `contas.moeda`
@@ -287,8 +288,60 @@ with the conta's moeda.
   USD→BRL conta = 422, same-moeda = 200, foreign conta = 422; criar-conta EUR = 400. In a real
   browser: table/select/placeholder/list formatting, KPI per moeda, chart selector R$↔US$,
   selector hidden for BRL-only data, conta creation in US$ through the form.
-- **Etapa 2 (not done)**: `transacoes.cotacao` filled from Banco Central PTAX on USD lançamentos,
-  plus a "Consolidado em R$" view. Transfer/câmbio between contas is a possible etapa 3.
+
+**Etapa 2 — cotação + "Consolidado em R$"** (done 2026-09-28, same day):
+
+- **Columns** `transacoes.cotacao numeric(12,6)`, `cotacao_data date`, `cotacao_estimada boolean`
+  — only filled on lançamentos of a USD conta. Rules (user-approved): **PTAX de venda** of the
+  lançamento's date; weekend/holiday (or before ~13h, when that day's PTAX isn't out yet) → last
+  business day before it; `cotacao_estimada = true` only when the PTAX used is older than the
+  lançamento's date **and** that date is today/future (a past weekend using Friday's PTAX is the
+  rule, not an estimate). Estimated cotações are **not** auto-updated later — the user refreshes
+  them via the "cotação" button (see below).
+- **PTAX source**: `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(...)`
+  (closing bulletin only, one per business day), queried with a 10-day window ending at
+  min(data, hoje em São Paulo) and taking the last bulletin ≤ that date. No auth. **Blocks browser
+  CORS (403)** — must be called from n8n, never from the frontend. HTTP nodes have
+  `continueOnFail: true`: if the Banco Central is down, the lançamento is still saved with
+  `cotacao = null` ("sem cotação").
+- **`03-criar-transacao`**: `Checar Conta` now also outputs the conta's `moeda`; both former paths
+  into `Criar Transacao` now go `Preparar Cotacao` → `Buscar Cotacao?` (IF, only USD without a
+  manual value) → `Buscar PTAX` (HTTP) → `Definir Cotacao` (the IF's false branch goes straight to
+  `Definir Cotacao`, which reads `$('Preparar Cotacao')` to know which case it is — no
+  `isExecuted` tricks). Optional body `cotacao` (> 0) = manual rate, skips the lookup.
+- **`05-editar-transacao`**: same chain, inserted before `Atualizar Transacao`, preceded by
+  `Buscar Moeda Conta` (the conta check only runs when `conta_id` changes, so moeda is fetched
+  separately). Re-fetches PTAX only when the `data` changed, the lançamento had no cotação, or
+  `recalcular_cotacao: true` is sent; otherwise keeps the stored values. `cotacao` in the body =
+  manual override (`cotacao_estimada = false`).
+- **`07-resumo-periodo`**: `Calcular Resumo` → `Tem Moeda Estrangeira?` (IF) → `Buscar PTAX Atual`
+  → `Consolidar em BRL` → respond (false branch skips the HTTP call — BRL-only empresas never hit
+  the Banco Central). The HTTP node sits **after** the single-item `Calcular Resumo`, never after
+  multi-item `Buscar Transacoes` (same re-execute-per-item gotcha as `Buscar Contas`). Adds
+  `consolidado: {moeda:'BRL', disponivel, cotacao_atual:{valor,data}, lancamentos_pela_cotacao_atual,
+  totais, por_categoria, saldo_por_conta:[{..., saldo (R$), saldo_original}]}`. Lançamentos convert
+  at **their own** cotação (reports for past months never change); lançamentos with `cotacao null`
+  fall back to the current PTAX (counted in `lancamentos_pela_cotacao_atual`); **saldo por conta in
+  USD converts at the current PTAX** (what the money is worth today). `disponivel: false` if
+  something couldn't be converted at all (no cotação and Banco Central down).
+- **Frontend**: USD rows in the lançamentos table show "≈ R$ X" below the value (tooltip: PTAX date
+  and rate), "(estimada)" or "sem cotação" in amber when applicable, and a **"cotação"** button that
+  opens a `prompt()` — a number sets a manual rate, blank = `recalcular_cotacao` (like `confirm()`
+  on excluir, this blocks browser automation; stub `window.prompt` when testing). Dashboard: the
+  moeda selector gains **"Consolidado em R$"** (only when a non-BRL moeda exists), KPI tiles get a
+  small "≈ R$ X consolidado" line, and `#notaConsolidado` explains which rates were used.
+  Multi-empresa view sums each empresa's `consolidado` client-side.
+- **Existing data**: the one USD lançamento created during etapa 1 (id 17, 2026-09-28) was
+  back-filled by SQL with that day's PTAX (5,2132).
+- **Verified live** (disposable empresas, deleted afterward): Saturday 12/09 → PTAX 11/09;
+  Friday 25/09 → 5,1991 exact; future 15/10 → 28/09 marked estimada; manual 5,5; invalid −1 → 400;
+  editing the date re-fetches, editing only descrição keeps it, `recalcular_cotacao` restores the
+  estimate; consolidated totals hand-checked (R$ 5.000 + 1.000×5,1161 + 10×5,5 + 1×5,2132 =
+  10.176,31; saldo Wise 1.161×5,2132 = 6.052,53); null cotação → current-PTAX fallback counted;
+  BRL-only empresa → no HTTP call, no selector. In the browser: table conversions, cotação button
+  (manual and blank → Sunday 20/09 used Friday 18/09 = 5,1575), consolidated charts/nota/KPIs.
+- **Possible etapa 3**: transfer/câmbio between contas (today a R$→US$ exchange must be entered
+  as a despesa + a receita, which inflates both totals).
 
 ### Onboarding email (Resend)
 

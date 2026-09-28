@@ -106,3 +106,13 @@ alter table hotmart_eventos enable row level security;
 -- coluna de moeda em transacoes). Contas existentes ficam em BRL pelo default. Sem conversão:
 -- os totais são sempre separados por moeda (consolidado com cotação fica pra etapa 2).
 alter table contas add column moeda text not null default 'BRL' check (moeda in ('BRL','USD'));
+
+-- Migração 2026-09-28 — cotação do dólar por lançamento (etapa 2). Ver CLAUDE.md "Moeda por
+-- conta". Só preenchida em lançamentos de conta USD: PTAX de venda do Banco Central da data do
+-- lançamento (ou do último dia útil anterior). cotacao_data = data da PTAX efetivamente usada.
+-- cotacao_estimada = lançamento de hoje/futuro cuja PTAX da própria data ainda não existia.
+-- cotacao null em conta USD = pendente (Banco Central indisponível) → resumo usa a cotação atual.
+alter table transacoes
+  add column cotacao          numeric(12,6),
+  add column cotacao_data     date,
+  add column cotacao_estimada boolean not null default false;

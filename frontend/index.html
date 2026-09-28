@@ -217,6 +217,8 @@
       <button id="btnAtualizarResumo" class="bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-[#00A396]">Atualizar</button>
     </div>
 
+    <p id="notaConsolidado" class="hidden text-xs text-[#7FA3AA] -mt-3"></p>
+
     <!-- KPI tiles -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="bg-[#0F2C36] rounded-xl border border-[#1B3D48] p-4 border-t-4 border-t-emerald-600">
@@ -431,6 +433,23 @@ function nomeConta(id) {
 // Cada conta tem uma moeda; o lançamento herda a moeda da conta (ver CLAUDE.md "Moeda por conta")
 function moedaConta(id) {
   return state.contas.find(c => c.id === id)?.moeda || "BRL";
+}
+
+function formatarData(iso) {
+  if (!iso) return "";
+  const [y, m, d] = String(iso).slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+}
+
+// Lançamento em US$: valor convertido pela cotação guardada (PTAX da data) — etapa 2
+function linhaConvertida(t) {
+  if (moedaConta(t.conta_id) === "BRL") return "";
+  if (t.cotacao === null || t.cotacao === undefined) {
+    return '<span class="block text-xs font-normal text-amber-400" title="Banco Central indisponível no momento do lançamento — o Dashboard usa a cotação atual">sem cotação</span>';
+  }
+  const cot = Number(t.cotacao).toLocaleString("pt-BR", { minimumFractionDigits: 4 });
+  const titulo = `PTAX ${formatarData(t.cotacao_data)}: R$ ${cot}${t.cotacao_estimada ? " — estimada (a PTAX da data do lançamento ainda não existia)" : ""}`;
+  return `<span class="block text-xs font-normal text-[#7FA3AA]" title="${titulo}">≈ ${formatarMoeda(Number(t.valor) * Number(t.cotacao), "BRL")}${t.cotacao_estimada ? ' <span class="text-amber-400">(estimada)</span>' : ""}</span>`;
 }
 
 function rotuloConta(c) {
@@ -659,13 +678,36 @@ async function carregarTransacoes(filtros = {}) {
       <td class="py-2 pr-2">${nomeConta(t.conta_id)}</td>
       <td class="py-2 pr-2">${nomeCategoria(t.categoria_id)}</td>
       <td class="py-2 pr-2 text-[#7FA3AA]">${t.descricao || ""}</td>
-      <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(t.valor, moedaConta(t.conta_id))}</td>
+      <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(t.valor, moedaConta(t.conta_id))}${linhaConvertida(t)}</td>
       <td class="py-2 pr-2 text-xs text-[#5C7D84]">${t.status}</td>
-      <td class="py-2 pr-2 text-right">
+      <td class="py-2 pr-2 text-right whitespace-nowrap">
+        ${moedaConta(t.conta_id) !== "BRL" ? `<button class="text-[#7FA3AA] hover:underline text-xs mr-2" data-cotacao="${t.id}" data-empresa-id="${t._empresaId}">cotação</button>` : ""}
         <button class="text-red-400 hover:underline text-xs" data-excluir="${t.id}" data-empresa-id="${t._empresaId}">excluir</button>
       </td>
     </tr>
   `).join("");
+
+  tbody.querySelectorAll("[data-cotacao]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const t = state.transacoes.find(x => x.id === Number(btn.dataset.cotacao));
+      const atual = t && t.cotacao !== null && t.cotacao !== undefined ? String(Number(t.cotacao)).replace(".", ",") : "";
+      const resp = prompt("Cotação do dólar para este lançamento (R$ por US$).\nDeixe em branco para buscar de novo a PTAX do Banco Central.", atual);
+      if (resp === null) return;
+      const body = { id: Number(btn.dataset.cotacao) };
+      if (resp.trim() === "") body.recalcular_cotacao = true;
+      else {
+        const valor = Number(resp.trim().replace(/\./g, "").replace(",", "."));
+        if (!(valor > 0)) { mostrarErro("Cotação inválida."); return; }
+        body.cotacao = valor;
+      }
+      try {
+        await api("editar-transacao", { method: "POST", body, empresaId: Number(btn.dataset.empresaId) });
+        await carregarTransacoes(filtrosAtuais());
+      } catch (e) {
+        mostrarErro(e.message);
+      }
+    });
+  });
 
   tbody.querySelectorAll("[data-excluir]").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -793,6 +835,9 @@ async function carregarResumo() {
     let saldoPorConta = [];
     let porCategoria = [];
     let totalLancamentos = 0;
+    // Consolidado em R$ (etapa 2): vem pronto do backend por empresa, aqui só soma
+    const consolidado = { disponivel: true, cotacaoAtual: null, pelaCotacaoAtual: 0, totais: { receitas: 0, despesas: 0, saldo: 0 }, porCategoria: [], saldoPorConta: [] };
+    let temConsolidado = true;
 
     for (const id of state.empresasSelecionadasIds) {
       const resumo = await api("resumo-periodo", { query, empresaId: id });
@@ -806,6 +851,16 @@ async function carregarResumo() {
       const prefixo = multi ? `${empresaSelecionadaNome(id)} — ` : "";
       saldoPorConta = saldoPorConta.concat(resumo.saldo_por_conta.map(c => ({ ...c, moeda: c.moeda || "BRL", nome: prefixo + c.nome })));
       porCategoria = porCategoria.concat(resumo.por_categoria.map(c => ({ ...c, moeda: c.moeda || "BRL", _empresaId: id })));
+      const cons = resumo.consolidado;
+      if (!cons) temConsolidado = false;
+      else {
+        consolidado.disponivel = consolidado.disponivel && cons.disponivel;
+        consolidado.cotacaoAtual = consolidado.cotacaoAtual || cons.cotacao_atual;
+        consolidado.pelaCotacaoAtual += cons.lancamentos_pela_cotacao_atual || 0;
+        for (const k of ["receitas", "despesas", "saldo"]) consolidado.totais[k] += cons.totais[k];
+        consolidado.porCategoria = consolidado.porCategoria.concat(cons.por_categoria.map(c => ({ ...c, moeda: "BRL", _empresaId: id })));
+        consolidado.saldoPorConta = consolidado.saldoPorConta.concat(cons.saldo_por_conta.map(c => ({ ...c, nome: prefixo + c.nome })));
+      }
 
       const listagem = await api("listar-transacoes", { query, empresaId: id });
       totalLancamentos += listagem.transacoes.length;
@@ -815,7 +870,8 @@ async function carregarResumo() {
     const moedas = [...ORDEM_MOEDAS.filter(m => presentes.has(m)), ...[...presentes].filter(m => !ORDEM_MOEDAS.includes(m))];
     if (moedas.length === 0) moedas.push(state.empresa?.moeda || "BRL");
 
-    ultimoResumo = { multi, moedas, totaisPorMoeda, saldoPorConta, porCategoria, totalLancamentos };
+    const temEstrangeira = moedas.some(m => m !== "BRL");
+    ultimoResumo = { multi, moedas, totaisPorMoeda, saldoPorConta, porCategoria, totalLancamentos, consolidado: temConsolidado && temEstrangeira ? consolidado : null };
     renderizarResumo();
   } catch (e) {
     mostrarErro(e.message);
@@ -824,32 +880,50 @@ async function carregarResumo() {
 
 function renderizarResumo() {
   if (!ultimoResumo) return;
-  const { multi, moedas, totaisPorMoeda, saldoPorConta, porCategoria, totalLancamentos } = ultimoResumo;
+  const { multi, moedas, totaisPorMoeda, saldoPorConta, porCategoria, totalLancamentos, consolidado } = ultimoResumo;
   const variasMoedas = moedas.length > 1;
 
-  // Seletor da moeda dos gráficos: só aparece quando existe mais de uma moeda
-  if (!moedas.includes(moedaDashboard)) moedaDashboard = moedas[0];
+  // Seletor da moeda dos gráficos: aparece com 2+ moedas ou quando há consolidado em R$
+  const opcoes = [...moedas, ...(consolidado ? ["CONSOLIDADO"] : [])];
+  if (!opcoes.includes(moedaDashboard)) moedaDashboard = opcoes[0];
   const seletor = document.getElementById("resumoMoeda");
-  seletor.innerHTML = moedas.map(m => `<option value="${m}">${SIMBOLO_MOEDA[m] || m}</option>`).join("");
+  seletor.innerHTML = opcoes.map(m => `<option value="${m}">${m === "CONSOLIDADO" ? "Consolidado em R$" : (SIMBOLO_MOEDA[m] || m)}</option>`).join("");
   seletor.value = moedaDashboard;
-  document.getElementById("blocoMoedaDashboard").classList.toggle("hidden", !variasMoedas);
+  document.getElementById("blocoMoedaDashboard").classList.toggle("hidden", opcoes.length < 2);
 
   // KPIs: uma linha por moeda
   const zero = { receitas: 0, despesas: 0, saldo: 0 };
-  const kpi = campo => variasMoedas
+  const linhaConsolidada = campo => consolidado && consolidado.disponivel
+    ? `<span class="block text-xs font-normal text-[#7FA3AA] mt-1">≈ ${formatarMoeda(consolidado.totais[campo], "BRL")} consolidado</span>`
+    : "";
+  const kpi = campo => (variasMoedas
     ? moedas.map(m => `<span class="block text-xl">${formatarMoeda((totaisPorMoeda[m] || zero)[campo], m)}</span>`).join("")
-    : formatarMoeda((totaisPorMoeda[moedas[0]] || zero)[campo], moedas[0]);
+    : formatarMoeda((totaisPorMoeda[moedas[0]] || zero)[campo], moedas[0])) + linhaConsolidada(campo);
   document.getElementById("totalReceitas").innerHTML = kpi("receitas");
   document.getElementById("totalDespesas").innerHTML = kpi("despesas");
   document.getElementById("totalSaldo").innerHTML = kpi("saldo");
   document.getElementById("totalLancamentos").textContent = totalLancamentos;
 
-  // Gráficos e tabela: só a moeda escolhida
-  const m = moedaDashboard;
-  const totais = totaisPorMoeda[m] || zero;
-  const categoriasMoeda = porCategoria.filter(c => c.moeda === m);
-  const contasMoeda = saldoPorConta.filter(c => c.moeda === m);
+  // Gráficos e tabela: só a moeda escolhida, ou tudo convertido pra R$ no consolidado
+  const modoConsolidado = moedaDashboard === "CONSOLIDADO";
+  const m = modoConsolidado ? "BRL" : moedaDashboard;
+  const totais = modoConsolidado ? consolidado.totais : (totaisPorMoeda[m] || zero);
+  const categoriasMoeda = modoConsolidado ? consolidado.porCategoria : porCategoria.filter(c => c.moeda === m);
+  const contasMoeda = modoConsolidado ? consolidado.saldoPorConta : saldoPorConta.filter(c => c.moeda === m);
   const fmt = v => formatarMoeda(v, m);
+
+  const nota = document.getElementById("notaConsolidado");
+  nota.classList.toggle("hidden", !modoConsolidado);
+  if (modoConsolidado) {
+    const partes = [];
+    if (!consolidado.disponivel) partes.push("⚠ Cotação do Banco Central indisponível agora — valores em US$ sem cotação ficaram de fora.");
+    partes.push("Lançamentos em US$ convertidos pela PTAX (venda) da data de cada um.");
+    if (consolidado.cotacaoAtual) {
+      partes.push(`Saldos das contas em US$ pela PTAX de ${formatarData(consolidado.cotacaoAtual.data)} (R$ ${consolidado.cotacaoAtual.valor.toLocaleString("pt-BR", { minimumFractionDigits: 4 })}).`);
+    }
+    if (consolidado.pelaCotacaoAtual > 0) partes.push(`${consolidado.pelaCotacaoAtual} lançamento(s) sem cotação própria usaram a cotação atual.`);
+    nota.textContent = partes.join(" ");
+  }
 
   document.getElementById("tabelaCategorias").innerHTML = categoriasMoeda.map(c => `
     <tr class="border-b border-[#14313A]">
@@ -898,7 +972,7 @@ function renderizarResumo() {
   graficos.saldoConta = new Chart(document.getElementById("chartSaldoConta"), {
     type: "bar",
     data: {
-      labels: contasMoeda.map(c => c.nome),
+      labels: contasMoeda.map(c => modoConsolidado && c.moeda !== "BRL" ? `${c.nome} (US$)` : c.nome),
       datasets: [{
         label: "Saldo",
         data: contasMoeda.map(c => c.saldo),
@@ -907,7 +981,7 @@ function renderizarResumo() {
     },
     options: {
       indexAxis: "y", responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `Saldo: ${fmt(ctx.parsed.x)}` } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => { const c = contasMoeda[ctx.dataIndex]; return `Saldo: ${fmt(ctx.parsed.x)}` + (modoConsolidado && c.moeda !== "BRL" ? ` (${formatarMoeda(c.saldo_original, c.moeda)})` : ""); } } } },
       scales: { x: { beginAtZero: true } },
     },
   });

@@ -355,7 +355,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst contaId = Number(body.conta_id);\nconst categoriaId = body.categoria_id === undefined || body.categoria_id === null || body.categoria_id === '' ? null : Number(body.categoria_id);\nconst tipo = body.tipo;\nconst valor = Number(body.valor);\nconst data = body.data;\nconst status = body.status || 'confirmado';\nconst origem = body.origem || 'manual';\nif (!Number.isFinite(contaId)) erros.push('conta_id');\nif (categoriaId !== null && !Number.isFinite(categoriaId)) erros.push('categoria_id');\nif (!['receita','despesa'].includes(tipo)) erros.push('tipo');\nif (!Number.isFinite(valor) || valor <= 0) erros.push('valor');\nif (!data || !/^\\d{4}-\\d{2}-\\d{2}$/.test(data)) erros.push('data');\nif (!['previsto','confirmado'].includes(status)) erros.push('status');\nif (!['manual','importado'].includes(origem)) erros.push('origem');\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, empresa_id: $('Checar Empresa').first().json.empresa_id, conta_id: contaId, categoria_id: categoriaId, tipo, valor, descricao: body.descricao || null, data, status, origem } }];"
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst contaId = Number(body.conta_id);\nconst categoriaId = body.categoria_id === undefined || body.categoria_id === null || body.categoria_id === '' ? null : Number(body.categoria_id);\nconst tipo = body.tipo;\nconst valor = Number(body.valor);\nconst data = body.data;\nconst status = body.status || 'confirmado';\nconst origem = body.origem || 'manual';\nconst cotacaoManual = body.cotacao === undefined || body.cotacao === null || body.cotacao === '' ? null : Number(body.cotacao);\nif (!Number.isFinite(contaId)) erros.push('conta_id');\nif (cotacaoManual !== null && !(Number.isFinite(cotacaoManual) && cotacaoManual > 0)) erros.push('cotacao');\nif (categoriaId !== null && !Number.isFinite(categoriaId)) erros.push('categoria_id');\nif (!['receita','despesa'].includes(tipo)) erros.push('tipo');\nif (!Number.isFinite(valor) || valor <= 0) erros.push('valor');\nif (!data || !/^\\d{4}-\\d{2}-\\d{2}$/.test(data)) erros.push('data');\nif (!['previsto','confirmado'].includes(status)) erros.push('status');\nif (!['manual','importado'].includes(origem)) erros.push('origem');\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, empresa_id: $('Checar Empresa').first().json.empresa_id, conta_id: contaId, categoria_id: categoriaId, tipo, valor, descricao: body.descricao || null, data, status, origem, cotacao_manual: cotacaoManual } }];"
       },
       "id": "3cb6eb63-8978-4c94-b8f8-9b33bfcda4b1",
       "name": "Validar Dados",
@@ -463,7 +463,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { conta_valida: rows.length > 0 } }];"
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { conta_valida: rows.length > 0, moeda: rows.length ? (rows[0].moeda || 'BRL') : null } }];"
       },
       "id": "01b72833-cbc4-4ba1-94ef-215e3f52e702",
       "name": "Checar Conta",
@@ -713,6 +713,18 @@
             {
               "fieldId": "origem",
               "fieldValue": "={{ $('Validar Dados').first().json.origem }}"
+            },
+            {
+              "fieldId": "cotacao",
+              "fieldValue": "={{ $('Definir Cotacao').first().json.cotacao }}"
+            },
+            {
+              "fieldId": "cotacao_data",
+              "fieldValue": "={{ $('Definir Cotacao').first().json.cotacao_data }}"
+            },
+            {
+              "fieldId": "cotacao_estimada",
+              "fieldValue": "={{ $('Definir Cotacao').first().json.cotacao_estimada }}"
             }
           ]
         }
@@ -722,8 +734,8 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1000,
-        -400
+        1800,
+        -560
       ],
       "credentials": {
         "supabaseApi": {
@@ -753,8 +765,85 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
+        2000,
+        -560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const v = $('Validar Dados').first().json;\nconst moeda = $('Checar Conta').first().json.moeda;\nconst dataLanc = v.data;\nconst hoje = $now.setZone('America/Sao_Paulo').toISODate();\nconst fimIso = dataLanc < hoje ? dataLanc : hoje;\nconst fmt = iso => { const [y, m, d] = iso.split('-'); return m + '-' + d + '-' + y; };\nconst inicioIso = DateTime.fromISO(fimIso).minus({ days: 10 }).toISODate();\n// Só conta USD busca cotação; cotação informada manualmente dispensa a busca\nconst buscar = moeda === 'USD' && v.cotacao_manual === null;\nreturn [{ json: { buscar, moeda, dataLanc, hoje, fimIso, inicio: fmt(inicioIso), fim: fmt(fimIso) } }];"
+      },
+      "id": "98206756-3764-44db-b811-9f6194214e78",
+      "name": "Preparar Cotacao",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        -560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.buscar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b436d22f-9a63-4f9f-b0c5-4a6f9b54cc04",
+      "name": "Buscar Cotacao?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
         1200,
-        -400
+        -560
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ \"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@dataInicial='\" + $json.inicio + \"'&@dataFinalCotacao='\" + $json.fim + \"'&$format=json\" }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "fc0aef35-79c6-4ed9-9bf5-3fa3c3812791",
+      "name": "Buscar PTAX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        -640
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('Preparar Cotacao').first().json;\nconst v = $('Validar Dados').first().json;\nif (p.moeda !== 'USD') return [{ json: { cotacao: null, cotacao_data: null, cotacao_estimada: false } }];\nif (v.cotacao_manual !== null) return [{ json: { cotacao: v.cotacao_manual, cotacao_data: v.data, cotacao_estimada: false } }];\nconst resp = $input.first().json || {};\nconst boletins = Array.isArray(resp.value) ? resp.value : [];\nconst ultimo = boletins.filter(b => String(b.dataHoraCotacao).slice(0, 10) <= p.fimIso).pop();\nif (!ultimo) return [{ json: { cotacao: null, cotacao_data: null, cotacao_estimada: false } }];\nconst cotacaoData = String(ultimo.dataHoraCotacao).slice(0, 10);\nreturn [{ json: { cotacao: Number(ultimo.cotacaoVenda), cotacao_data: cotacaoData, cotacao_estimada: cotacaoData < p.dataLanc && p.dataLanc >= p.hoje } }];"
+      },
+      "id": "dd5b7ccb-4135-4f57-a34f-c75665ff67c2",
+      "name": "Definir Cotacao",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -560
       ]
     }
   ],
@@ -988,7 +1077,7 @@
         ],
         [
           {
-            "node": "Criar Transacao (Supabase)",
+            "node": "Preparar Cotacao",
             "type": "main",
             "index": 0
           }
@@ -1021,7 +1110,7 @@
       "main": [
         [
           {
-            "node": "Criar Transacao (Supabase)",
+            "node": "Preparar Cotacao",
             "type": "main",
             "index": 0
           }
@@ -1040,6 +1129,57 @@
         [
           {
             "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Cotacao": {
+      "main": [
+        [
+          {
+            "node": "Buscar Cotacao?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Cotacao?": {
+      "main": [
+        [
+          {
+            "node": "Buscar PTAX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Definir Cotacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar PTAX": {
+      "main": [
+        [
+          {
+            "node": "Definir Cotacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Definir Cotacao": {
+      "main": [
+        [
+          {
+            "node": "Criar Transacao (Supabase)",
             "type": "main",
             "index": 0
           }
