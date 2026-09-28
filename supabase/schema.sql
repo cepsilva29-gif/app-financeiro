@@ -100,3 +100,9 @@ create table hotmart_eventos (
 );
 
 alter table hotmart_eventos enable row level security;
+
+-- Migração 2026-09-28 — moeda por conta (etapa 1 do suporte a dólar). Ver CLAUDE.md
+-- "Moeda por conta". Cada conta tem uma moeda; o lançamento herda a moeda da conta (não há
+-- coluna de moeda em transacoes). Contas existentes ficam em BRL pelo default. Sem conversão:
+-- os totais são sempre separados por moeda (consolidado com cotação fica pra etapa 2).
+alter table contas add column moeda text not null default 'BRL' check (moeda in ('BRL','USD'));

@@ -574,11 +574,6 @@
         "filters": {
           "conditions": [
             {
-              "keyName": "id",
-              "condition": "eq",
-              "keyValue": "={{ $('Validar Dados Edicao').first().json.conta_id }}"
-            },
-            {
               "keyName": "empresa_id",
               "condition": "eq",
               "keyValue": "={{ $('Validar Dados Edicao').first().json.empresa_id }}"
@@ -604,7 +599,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nreturn [{ json: { conta_valida: rows.length > 0 } }];"
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.id);\nconst v = $('Validar Dados Edicao').first().json;\nconst existing = $('Checar Transacao').first().json.transacao;\nconst nova = rows.find(r => r.id === v.conta_id);\nif (!nova) return [{ json: { conta_valida: false, erro: 'conta_id nao existe ou nao pertence a esta empresa.' } }];\nconst atual = rows.find(r => r.id === existing.conta_id);\nif (atual && atual.moeda !== nova.moeda) return [{ json: { conta_valida: false, erro: 'Nao e possivel mover o lancamento para uma conta em outra moeda (' + atual.moeda + ' para ' + nova.moeda + ').' } }];\nreturn [{ json: { conta_valida: true } }];"
       },
       "id": "927425a2-d055-44ed-b9b7-9fc67e1e95e8",
       "name": "Checar Conta",
@@ -651,7 +646,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": \"conta_id nao existe ou nao pertence a esta empresa.\" } }}",
+        "responseBody": "={{ { \"sucesso\": false, \"mensagem\": $json.erro } }}",
         "options": {
           "responseHeaders": {
             "entries": [

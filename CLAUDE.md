@@ -93,6 +93,8 @@ owner. Keep new docs and UI copy in Portuguese too.
   label only (internal `data-tab`/`id`/function/endpoint names all still say "resumo", see below),
   then rebuilt as KPI tiles + Chart.js charts (donut, grouped bar, horizontal bar) instead of plain
   numbers/lists, on explicit user request ("como power bi"). See "Dashboard" under Frontend below.
+- **Moeda por conta (R$/US$) — etapa 1 done** (2026-09-28) — each conta has a moeda, Dashboard
+  totals are kept per moeda. See "Moeda por conta" below. Etapa 2 (cotação/consolidado) pending.
 - **Hotmart integration — done, wired to real credentials, verified end-to-end** (2026-09-21) —
   `13-hotmart-vendas` logs Hotmart's 4 purchase-lifecycle webhook events (approved/canceled/
   refunded/chargeback) and deactivates the matching empresa (by e-mail match) on the latter 3.
@@ -246,6 +248,47 @@ Only `previsto` vs `confirmado` status exists; `resumo-periodo` and account bala
   branch, specifically to avoid depending on ordering between two parallel branches (unlike
   `resumo-periodo`, which does read a sibling branch's output and relies on it having already run
   — that pattern is only safe because it was verified working, not because n8n guarantees it).
+
+### Moeda por conta (etapa 1 do suporte a dólar)
+
+Added 2026-09-28. The user wants lançamentos in both R$ and US$, shown in the Dashboard. Design
+chosen and approved: **the moeda belongs to the conta, not the lançamento** — `contas.moeda`
+(`'BRL'|'USD'`, default `'BRL'`, check constraint), and a transação's moeda is always its conta's
+(no `moeda` column on `transacoes`). Existing contas became BRL via the default; no data migrated.
+`empresas.moeda` still exists but now only means "default display"; values are always formatted
+with the conta's moeda.
+
+- **Invariant: never sum different moedas.** `07-resumo-periodo` returns `totais_por_moeda`
+  (`{BRL: {receitas, despesas, saldo, lancamentos}, USD: {...}}` — `lancamentos` there counts
+  `confirmado` only, like the rest of that endpoint), `moeda` on every `saldo_por_conta` row, and
+  `por_categoria` keyed by (categoria, moeda). The legacy `totais` field is kept but is now **BRL
+  only** — so a frontend that predates this change can't silently add dollars to reais.
+- **`02-criar-conta`** accepts `moeda` (case-insensitive, default BRL, 400 for anything else).
+- **`05-editar-transacao`** rejects (422) moving a lançamento to a conta in a different moeda —
+  that would silently turn "100 reais" into "100 dólares". To compare, `Verificar Conta` now fetches
+  **all** the empresa's contas (filter `empresa_id` only) and `Checar Conta` finds both the current
+  and new conta by id; `Responder Conta Invalida` returns `$json.erro` so the ownership error and
+  the currency error each get their own message.
+- **No way to change a conta's moeda** after creation (no workflow does it, on purpose — it would
+  reinterpret every existing lançamento). Create a new conta instead.
+- **Frontend**: `formatarMoeda(valor, moeda)` (second arg defaults to the empresa's);
+  `moedaConta(id)` / `rotuloConta(c)` helpers; conta form has a R$/US$ select; non-BRL contas show
+  "(US$)" in selects and "· USD" in the list; the lançamento `valor` placeholder follows the
+  selected conta (`atualizarRotuloValor()`). Dashboard: `carregarResumo()` fetches and stores
+  `ultimoResumo`, `renderizarResumo()` draws — KPI tiles list one line per moeda present; charts
+  and the detail table show only `moedaDashboard`, picked via `#resumoMoeda` (the
+  `#blocoMoedaDashboard` wrapper is hidden unless 2+ moedas exist, so a BRL-only empresa sees the
+  same Dashboard as before). Switching moeda re-renders without refetching.
+- **Deploy**: the 3 workflows were replaced by deactivate-old → create-new → activate (old
+  versions left **deactivated**, not deleted, on the n8n instance). Backend is backward compatible
+  with the previous frontend, so deploy order didn't matter.
+- **Verified live** (disposable empresa, deleted afterward): BRL 1000+5000−2000 = 4000 and USD
+  200+1000−50 = 1150 saldo por conta; totals R$ 5000/2000 and US$ 1000/50 kept separate; editar
+  USD→BRL conta = 422, same-moeda = 200, foreign conta = 422; criar-conta EUR = 400. In a real
+  browser: table/select/placeholder/list formatting, KPI per moeda, chart selector R$↔US$,
+  selector hidden for BRL-only data, conta creation in US$ through the form.
+- **Etapa 2 (not done)**: `transacoes.cotacao` filled from Banco Central PTAX on USD lançamentos,
+  plus a "Consolidado em R$" view. Transfer/câmbio between contas is a possible etapa 3.
 
 ### Onboarding email (Resend)
 
@@ -572,10 +615,8 @@ than accidentally relying on stale shared state).
   each `saldo_por_conta`/`por_categoria` row with the empresa's nome (own + filiais share one flat
   `contas`/`categorias` id space — Postgres `identity` columns are global per table, not
   per-empresa, so no id collisions are possible when merging — but nomes like "Caixa" or "Vendas"
-  very plausibly repeat across companies, hence the prefix). **Assumes every selected empresa
-  shares one moeda** (defaults display to BRL in this mode) — there's no UI or backend support for
-  mixing currencies in one combined total; not a concern today since nothing in this project
-  actually varies `moeda` per empresa yet, but would need real handling if that ever changes.
+  very plausibly repeat across companies, hence the prefix). Totals are summed **per moeda**
+  (`totais_por_moeda`), never across currencies — see "Moeda por conta" below.
 - **No shared-mutable-state race**: the multi-fetch loops inside `carregarCategorias()` /
   `carregarContas()` / `carregarTransacoes()` / `carregarResumo()` run under `Promise.all` (or
   sequential `await` in a loop) — if `empresaId` were threaded through a shared field like the old

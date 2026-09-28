@@ -355,7 +355,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst nome = String(body.nome || '').trim();\nconst tipo = body.tipo;\nconst saldoInicial = body.saldo_inicial === undefined ? 0 : Number(body.saldo_inicial);\nif (!nome) erros.push('nome');\nif (!['caixa','banco','cartao'].includes(tipo)) erros.push('tipo');\nif (Number.isNaN(saldoInicial)) erros.push('saldo_inicial');\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, empresa_id: $('Checar Empresa').first().json.empresa_id, nome, tipo, saldo_inicial: saldoInicial } }];"
+        "jsCode": "const body = $('Webhook').first().json.body || {};\nconst erros = [];\nconst nome = String(body.nome || '').trim();\nconst tipo = body.tipo;\nconst saldoInicial = body.saldo_inicial === undefined ? 0 : Number(body.saldo_inicial);\nconst moeda = body.moeda === undefined || body.moeda === '' ? 'BRL' : String(body.moeda).toUpperCase();\nif (!nome) erros.push('nome');\nif (!['BRL','USD'].includes(moeda)) erros.push('moeda');\nif (!['caixa','banco','cartao'].includes(tipo)) erros.push('tipo');\nif (Number.isNaN(saldoInicial)) erros.push('saldo_inicial');\nif (erros.length) return [{ json: { valido: false, erro: 'Campos invalidos ou ausentes: ' + erros.join(', ') } }];\nreturn [{ json: { valido: true, empresa_id: $('Checar Empresa').first().json.empresa_id, nome, tipo, saldo_inicial: saldoInicial, moeda } }];"
       },
       "id": "0a43dcac-d05a-4d3f-ae7b-c019dc00352f",
       "name": "Validar Dados",
@@ -444,6 +444,10 @@
             {
               "fieldId": "saldo_inicial",
               "fieldValue": "={{ $('Validar Dados').first().json.saldo_inicial }}"
+            },
+            {
+              "fieldId": "moeda",
+              "fieldValue": "={{ $('Validar Dados').first().json.moeda }}"
             }
           ]
         }

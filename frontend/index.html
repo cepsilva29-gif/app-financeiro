@@ -140,7 +140,7 @@
         <select name="categoria_id" class="col-span-1 border rounded-lg px-2 py-2 text-sm" id="selectCategoria">
           <option value="">Sem categoria</option>
         </select>
-        <input name="valor" type="number" step="0.01" min="0.01" placeholder="Valor" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
+        <input name="valor" id="inputValor" type="number" step="0.01" min="0.01" placeholder="Valor" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
         <input name="data" type="date" required class="col-span-1 border rounded-lg px-2 py-2 text-sm">
         <input name="descricao" type="text" placeholder="Descrição (opcional)" class="col-span-2 border rounded-lg px-2 py-2 text-sm">
         <select name="status" class="col-span-1 border rounded-lg px-2 py-2 text-sm">
@@ -209,6 +209,10 @@
       <div>
         <label class="block text-xs text-[#7FA3AA] mb-1">Até</label>
         <input id="resumoFim" type="date" class="border rounded-lg px-2 py-1.5 text-sm">
+      </div>
+      <div id="blocoMoedaDashboard" class="hidden">
+        <label class="block text-xs text-[#7FA3AA] mb-1">Moeda dos gráficos</label>
+        <select id="resumoMoeda" class="border rounded-lg px-2 py-1.5 text-sm"></select>
       </div>
       <button id="btnAtualizarResumo" class="bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-[#00A396]">Atualizar</button>
     </div>
@@ -295,6 +299,10 @@
             <option value="caixa">Caixa</option>
             <option value="banco">Banco</option>
             <option value="cartao">Cartão</option>
+          </select>
+          <select name="moeda" class="border rounded-lg px-2 py-1.5 text-sm">
+            <option value="BRL">R$</option>
+            <option value="USD">US$</option>
           </select>
           <input name="saldo_inicial" type="number" step="0.01" placeholder="Saldo inicial" class="w-28 border rounded-lg px-2 py-1.5 text-sm">
           <button type="submit" class="bg-[#00B8A9] text-[#071C24] rounded-lg px-3 py-1.5 text-sm hover:bg-[#00A396]">+</button>
@@ -404,8 +412,10 @@ const state = {
   transacoes: [],
 };
 
-function formatarMoeda(valor) {
-  const moeda = state.empresa?.moeda || "BRL";
+const SIMBOLO_MOEDA = { BRL: "R$", USD: "US$" };
+const ORDEM_MOEDAS = ["BRL", "USD"];
+
+function formatarMoeda(valor, moeda = state.empresa?.moeda || "BRL") {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: moeda }).format(Number(valor) || 0);
 }
 
@@ -416,6 +426,15 @@ function nomeCategoria(id) {
 
 function nomeConta(id) {
   return state.contas.find(c => c.id === id)?.nome || "—";
+}
+
+// Cada conta tem uma moeda; o lançamento herda a moeda da conta (ver CLAUDE.md "Moeda por conta")
+function moedaConta(id) {
+  return state.contas.find(c => c.id === id)?.moeda || "BRL";
+}
+
+function rotuloConta(c) {
+  return c.moeda && c.moeda !== "BRL" ? `${c.nome} (${SIMBOLO_MOEDA[c.moeda] || c.moeda})` : c.nome;
 }
 
 // ---------------------------------------------------------------------------
@@ -472,7 +491,7 @@ async function recarregarTudo() {
   } else {
     state.empresaAtivaId = null;
     const nomes = state.empresasSelecionadasIds.map(empresaSelecionadaNome);
-    state.empresa = { moeda: "BRL" }; // assume mesma moeda entre as empresas somadas — não há UI hoje pra moedas diferentes
+    state.empresa = { moeda: "BRL" }; // só o padrão de formatação; valores sempre usam a moeda da conta e o Dashboard soma por moeda
     document.getElementById("empresaNome").textContent = `${nomes.length} empresas selecionadas`;
     document.getElementById("empresaSlug").textContent = nomes.join(" + ");
   }
@@ -579,18 +598,19 @@ async function carregarContas() {
 
   const selectConta = document.getElementById("selectConta");
   selectConta.innerHTML = '<option value="">Conta</option>' +
-    contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join("");
+    contas.map(c => `<option value="${c.id}">${rotuloConta(c)}</option>`).join("");
+  atualizarRotuloValor();
 
   const filtroConta = document.getElementById("filtroConta");
   filtroConta.innerHTML = '<option value="">Todas</option>' +
-    contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join("");
+    contas.map(c => `<option value="${c.id}">${rotuloConta(c)}</option>`).join("");
 
   const lista = document.getElementById("listaContas");
   lista.innerHTML = contas.map(c =>
     `<li class="flex justify-between border-b border-[#14313A] py-1">
-      <span>${c.nome} <span class="text-xs text-[#5C7D84]">(${c.tipo})</span></span>
+      <span>${c.nome} <span class="text-xs text-[#5C7D84]">(${c.tipo}${c.moeda && c.moeda !== "BRL" ? " · " + c.moeda : ""})</span></span>
       <span class="flex items-center gap-3">
-        <span>${formatarMoeda(c.saldo_inicial)}</span>
+        <span>${formatarMoeda(c.saldo_inicial, c.moeda)}</span>
         <button class="text-red-400 hover:underline text-xs" data-excluir-conta="${c.id}" data-empresa-id="${c._empresaId}">excluir</button>
       </span>
     </li>`
@@ -639,7 +659,7 @@ async function carregarTransacoes(filtros = {}) {
       <td class="py-2 pr-2">${nomeConta(t.conta_id)}</td>
       <td class="py-2 pr-2">${nomeCategoria(t.categoria_id)}</td>
       <td class="py-2 pr-2 text-[#7FA3AA]">${t.descricao || ""}</td>
-      <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(t.valor)}</td>
+      <td class="py-2 pr-2 text-right font-medium">${formatarMoeda(t.valor, moedaConta(t.conta_id))}</td>
       <td class="py-2 pr-2 text-xs text-[#5C7D84]">${t.status}</td>
       <td class="py-2 pr-2 text-right">
         <button class="text-red-400 hover:underline text-xs" data-excluir="${t.id}" data-empresa-id="${t._empresaId}">excluir</button>
@@ -682,6 +702,12 @@ document.getElementById("btnLimparFiltro").addEventListener("click", () => {
   carregarTransacoes();
 });
 
+function atualizarRotuloValor() {
+  const contaId = Number(document.getElementById("selectConta").value);
+  document.getElementById("inputValor").placeholder = contaId ? `Valor (${SIMBOLO_MOEDA[moedaConta(contaId)] || moedaConta(contaId)})` : "Valor";
+}
+document.getElementById("selectConta").addEventListener("change", atualizarRotuloValor);
+
 // Filtra o select de categoria pelo tipo escolhido no formulário de novo lançamento
 document.querySelector('#formTransacao [name="tipo"]').addEventListener("change", (e) => {
   const tipo = e.target.value;
@@ -703,6 +729,7 @@ document.getElementById("formTransacao").addEventListener("submit", async (e) =>
   try {
     await api("criar-transacao", { method: "POST", body: dados });
     form.reset();
+    atualizarRotuloValor();
     await carregarTransacoes(filtrosAtuais());
   } catch (e) {
     mostrarErro(e.message);
@@ -748,6 +775,9 @@ function destruirGrafico(chave) {
   if (graficos[chave]) { graficos[chave].destroy(); graficos[chave] = null; }
 }
 
+let ultimoResumo = null;  // dados já buscados; trocar a moeda dos gráficos só re-renderiza
+let moedaDashboard = null;
+
 async function carregarResumo() {
   const query = {};
   const inicio = document.getElementById("resumoInicio").value;
@@ -758,92 +788,135 @@ async function carregarResumo() {
   const multi = state.empresasSelecionadasIds.length > 1;
 
   try {
-    let totais = { receitas: 0, despesas: 0, saldo: 0 };
+    // Nunca soma moedas diferentes: totais sempre agrupados por moeda
+    const totaisPorMoeda = {};
     let saldoPorConta = [];
     let porCategoria = [];
     let totalLancamentos = 0;
 
     for (const id of state.empresasSelecionadasIds) {
       const resumo = await api("resumo-periodo", { query, empresaId: id });
-      totais.receitas += resumo.totais.receitas;
-      totais.despesas += resumo.totais.despesas;
-      totais.saldo += resumo.totais.saldo;
+      const porMoeda = resumo.totais_por_moeda || { BRL: resumo.totais };
+      for (const [moeda, t] of Object.entries(porMoeda)) {
+        const acc = totaisPorMoeda[moeda] || (totaisPorMoeda[moeda] = { receitas: 0, despesas: 0, saldo: 0 });
+        acc.receitas += t.receitas;
+        acc.despesas += t.despesas;
+        acc.saldo += t.saldo;
+      }
       const prefixo = multi ? `${empresaSelecionadaNome(id)} — ` : "";
-      saldoPorConta = saldoPorConta.concat(resumo.saldo_por_conta.map(c => ({ ...c, nome: prefixo + c.nome })));
-      porCategoria = porCategoria.concat(resumo.por_categoria.map(c => ({ ...c, _empresaId: id })));
+      saldoPorConta = saldoPorConta.concat(resumo.saldo_por_conta.map(c => ({ ...c, moeda: c.moeda || "BRL", nome: prefixo + c.nome })));
+      porCategoria = porCategoria.concat(resumo.por_categoria.map(c => ({ ...c, moeda: c.moeda || "BRL", _empresaId: id })));
 
       const listagem = await api("listar-transacoes", { query, empresaId: id });
       totalLancamentos += listagem.transacoes.length;
     }
 
-    document.getElementById("totalReceitas").textContent = formatarMoeda(totais.receitas);
-    document.getElementById("totalDespesas").textContent = formatarMoeda(totais.despesas);
-    document.getElementById("totalSaldo").textContent = formatarMoeda(totais.saldo);
-    document.getElementById("totalLancamentos").textContent = totalLancamentos;
+    const presentes = new Set([...Object.keys(totaisPorMoeda), ...saldoPorConta.map(c => c.moeda)]);
+    const moedas = [...ORDEM_MOEDAS.filter(m => presentes.has(m)), ...[...presentes].filter(m => !ORDEM_MOEDAS.includes(m))];
+    if (moedas.length === 0) moedas.push(state.empresa?.moeda || "BRL");
 
-    document.getElementById("tabelaCategorias").innerHTML = porCategoria.map(c => `
-      <tr class="border-b border-[#14313A]">
-        <td class="py-2 pr-2">${multi ? `${empresaSelecionadaNome(c._empresaId)} — ` : ""}${nomeCategoria(c.categoria_id)}</td>
-        <td class="py-2 pr-2 text-right text-emerald-400">${formatarMoeda(c.receita)}</td>
-        <td class="py-2 pr-2 text-right text-red-400">${formatarMoeda(c.despesa)}</td>
-      </tr>
-    `).join("") || '<tr><td colspan="3" class="text-[#5C7D84] py-3">Nenhum lançamento no período.</td></tr>';
-
-    // Donut: Receitas x Despesas
-    destruirGrafico("receitaDespesa");
-    graficos.receitaDespesa = new Chart(document.getElementById("chartReceitaDespesa"), {
-      type: "doughnut",
-      data: {
-        labels: ["Receitas", "Despesas"],
-        datasets: [{ data: [totais.receitas, totais.despesas], backgroundColor: [CORES.receita, CORES.despesa], borderWidth: 0 }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } } },
-      },
-    });
-
-    // Barras agrupadas: totais por categoria
-    destruirGrafico("categorias");
-    const nomesCategorias = porCategoria.map(c => `${multi ? empresaSelecionadaNome(c._empresaId) + " — " : ""}${nomeCategoria(c.categoria_id)}`);
-    graficos.categorias = new Chart(document.getElementById("chartCategorias"), {
-      type: "bar",
-      data: {
-        labels: nomesCategorias,
-        datasets: [
-          { label: "Receitas", data: porCategoria.map(c => c.receita), backgroundColor: CORES.receita },
-          { label: "Despesas", data: porCategoria.map(c => c.despesa), backgroundColor: CORES.despesa },
-        ],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } } },
-        scales: { y: { beginAtZero: true } },
-      },
-    });
-
-    // Barras horizontais: saldo por conta
-    destruirGrafico("saldoConta");
-    graficos.saldoConta = new Chart(document.getElementById("chartSaldoConta"), {
-      type: "bar",
-      data: {
-        labels: saldoPorConta.map(c => c.nome),
-        datasets: [{
-          label: "Saldo",
-          data: saldoPorConta.map(c => c.saldo),
-          backgroundColor: saldoPorConta.map(c => c.saldo < 0 ? CORES.despesa : CORES.primaria),
-        }],
-      },
-      options: {
-        indexAxis: "y", responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true } },
-      },
-    });
+    ultimoResumo = { multi, moedas, totaisPorMoeda, saldoPorConta, porCategoria, totalLancamentos };
+    renderizarResumo();
   } catch (e) {
     mostrarErro(e.message);
   }
 }
+
+function renderizarResumo() {
+  if (!ultimoResumo) return;
+  const { multi, moedas, totaisPorMoeda, saldoPorConta, porCategoria, totalLancamentos } = ultimoResumo;
+  const variasMoedas = moedas.length > 1;
+
+  // Seletor da moeda dos gráficos: só aparece quando existe mais de uma moeda
+  if (!moedas.includes(moedaDashboard)) moedaDashboard = moedas[0];
+  const seletor = document.getElementById("resumoMoeda");
+  seletor.innerHTML = moedas.map(m => `<option value="${m}">${SIMBOLO_MOEDA[m] || m}</option>`).join("");
+  seletor.value = moedaDashboard;
+  document.getElementById("blocoMoedaDashboard").classList.toggle("hidden", !variasMoedas);
+
+  // KPIs: uma linha por moeda
+  const zero = { receitas: 0, despesas: 0, saldo: 0 };
+  const kpi = campo => variasMoedas
+    ? moedas.map(m => `<span class="block text-xl">${formatarMoeda((totaisPorMoeda[m] || zero)[campo], m)}</span>`).join("")
+    : formatarMoeda((totaisPorMoeda[moedas[0]] || zero)[campo], moedas[0]);
+  document.getElementById("totalReceitas").innerHTML = kpi("receitas");
+  document.getElementById("totalDespesas").innerHTML = kpi("despesas");
+  document.getElementById("totalSaldo").innerHTML = kpi("saldo");
+  document.getElementById("totalLancamentos").textContent = totalLancamentos;
+
+  // Gráficos e tabela: só a moeda escolhida
+  const m = moedaDashboard;
+  const totais = totaisPorMoeda[m] || zero;
+  const categoriasMoeda = porCategoria.filter(c => c.moeda === m);
+  const contasMoeda = saldoPorConta.filter(c => c.moeda === m);
+  const fmt = v => formatarMoeda(v, m);
+
+  document.getElementById("tabelaCategorias").innerHTML = categoriasMoeda.map(c => `
+    <tr class="border-b border-[#14313A]">
+      <td class="py-2 pr-2">${multi ? `${empresaSelecionadaNome(c._empresaId)} — ` : ""}${nomeCategoria(c.categoria_id)}</td>
+      <td class="py-2 pr-2 text-right text-emerald-400">${fmt(c.receita)}</td>
+      <td class="py-2 pr-2 text-right text-red-400">${fmt(c.despesa)}</td>
+    </tr>
+  `).join("") || '<tr><td colspan="3" class="text-[#5C7D84] py-3">Nenhum lançamento no período.</td></tr>';
+
+
+  // Donut: Receitas x Despesas
+  destruirGrafico("receitaDespesa");
+  graficos.receitaDespesa = new Chart(document.getElementById("chartReceitaDespesa"), {
+    type: "doughnut",
+    data: {
+      labels: ["Receitas", "Despesas"],
+      datasets: [{ data: [totais.receitas, totais.despesas], backgroundColor: [CORES.receita, CORES.despesa], borderWidth: 0 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmt(ctx.parsed)}` } } },
+    },
+  });
+
+  // Barras agrupadas: totais por categoria
+  destruirGrafico("categorias");
+  const nomesCategorias = categoriasMoeda.map(c => `${multi ? empresaSelecionadaNome(c._empresaId) + " — " : ""}${nomeCategoria(c.categoria_id)}`);
+  graficos.categorias = new Chart(document.getElementById("chartCategorias"), {
+    type: "bar",
+    data: {
+      labels: nomesCategorias,
+      datasets: [
+        { label: "Receitas", data: categoriasMoeda.map(c => c.receita), backgroundColor: CORES.receita },
+        { label: "Despesas", data: categoriasMoeda.map(c => c.despesa), backgroundColor: CORES.despesa },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } } },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+
+  // Barras horizontais: saldo por conta
+  destruirGrafico("saldoConta");
+  graficos.saldoConta = new Chart(document.getElementById("chartSaldoConta"), {
+    type: "bar",
+    data: {
+      labels: contasMoeda.map(c => c.nome),
+      datasets: [{
+        label: "Saldo",
+        data: contasMoeda.map(c => c.saldo),
+        backgroundColor: contasMoeda.map(c => c.saldo < 0 ? CORES.despesa : CORES.primaria),
+      }],
+    },
+    options: {
+      indexAxis: "y", responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `Saldo: ${fmt(ctx.parsed.x)}` } } },
+      scales: { x: { beginAtZero: true } },
+    },
+  });
+}
+
+document.getElementById("resumoMoeda").addEventListener("change", (e) => {
+  moedaDashboard = e.target.value;
+  renderizarResumo();
+});
 
 document.getElementById("btnAtualizarResumo").addEventListener("click", carregarResumo);
 
