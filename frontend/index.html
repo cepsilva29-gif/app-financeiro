@@ -537,7 +537,7 @@ async function carregarCategorias() {
   let categorias = [];
   for (const id of state.empresasSelecionadasIds) {
     const r = await api("listar-categorias", { empresaId: id });
-    categorias = categorias.concat(r.categorias);
+    categorias = categorias.concat(r.categorias.map(c => ({ ...c, _empresaId: id })));
   }
   state.categorias = categorias;
 
@@ -549,16 +549,31 @@ async function carregarCategorias() {
   lista.innerHTML = categorias.map(c =>
     `<li class="flex justify-between border-b border-[#14313A] py-1">
       <span>${c.nome}</span>
-      <span class="text-xs px-2 py-0.5 rounded-full ${c.tipo === "receita" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}">${c.tipo}</span>
+      <span class="flex items-center gap-3">
+        <span class="text-xs px-2 py-0.5 rounded-full ${c.tipo === "receita" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}">${c.tipo}</span>
+        <button class="text-red-400 hover:underline text-xs" data-excluir-categoria="${c.id}" data-empresa-id="${c._empresaId}">excluir</button>
+      </span>
     </li>`
   ).join("") || '<li class="text-[#5C7D84]">Nenhuma categoria ainda.</li>';
+
+  lista.querySelectorAll("[data-excluir-categoria]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Excluir esta categoria?")) return;
+      try {
+        await api("excluir-categoria", { method: "POST", body: { id: Number(btn.dataset.excluirCategoria) }, empresaId: Number(btn.dataset.empresaId) });
+        await carregarCategorias();
+      } catch (e) {
+        mostrarErro(e.message);
+      }
+    });
+  });
 }
 
 async function carregarContas() {
   let contas = [];
   for (const id of state.empresasSelecionadasIds) {
     const r = await api("listar-contas", { empresaId: id });
-    contas = contas.concat(r.contas);
+    contas = contas.concat(r.contas.map(c => ({ ...c, _empresaId: id })));
   }
   state.contas = contas;
 
@@ -574,9 +589,24 @@ async function carregarContas() {
   lista.innerHTML = contas.map(c =>
     `<li class="flex justify-between border-b border-[#14313A] py-1">
       <span>${c.nome} <span class="text-xs text-[#5C7D84]">(${c.tipo})</span></span>
-      <span>${formatarMoeda(c.saldo_inicial)}</span>
+      <span class="flex items-center gap-3">
+        <span>${formatarMoeda(c.saldo_inicial)}</span>
+        <button class="text-red-400 hover:underline text-xs" data-excluir-conta="${c.id}" data-empresa-id="${c._empresaId}">excluir</button>
+      </span>
     </li>`
   ).join("") || '<li class="text-[#5C7D84]">Nenhuma conta ainda.</li>';
+
+  lista.querySelectorAll("[data-excluir-conta]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Excluir esta conta?")) return;
+      try {
+        await api("excluir-conta", { method: "POST", body: { id: Number(btn.dataset.excluirConta) }, empresaId: Number(btn.dataset.empresaId) });
+        await carregarContas();
+      } catch (e) {
+        mostrarErro(e.message);
+      }
+    });
+  });
 }
 
 async function carregarTransacoes(filtros = {}) {

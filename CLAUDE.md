@@ -208,6 +208,16 @@ Only `previsto` vs `confirmado` status exists; `resumo-periodo` and account bala
   (via `$('Checar Empresa Token')`, not the resolved one) — deliberately constant regardless of
   which filial is currently being viewed, so the frontend's switcher doesn't lose its own list of
   options the moment you switch away from the matriz.
+- **`14-excluir-categoria`** / **`15-excluir-conta`** (`POST .../excluir-categoria`,
+  `POST .../excluir-conta`, added 2026-09-28 for the "excluir" buttons in Categorias & Contas).
+  Same shared prefix + same shape as `06-excluir-transacao` (404 if the `id` is absent or belongs
+  to another empresa; a missing/non-numeric `id` is coerced to `0` → 404 instead of crashing the
+  Supabase query), plus a `Verificar Uso` check: if any `transacoes` row of that empresa references
+  it, responds **409** with the count and does not delete — deliberately blocks rather than
+  cascading or nulling `categoria_id` (`transacoes.conta_id` is `not null` anyway). Generated from
+  `06-excluir-transacao.json`'s prefix nodes by a one-off script, not by `n8n_lib.mjs`. Verified
+  live against a disposable empresa (409 in-use, 200 free, 404 repeat/foreign/no-id, 401 no
+  token, 403 foreign `empresa_id`), then deleted.
 - **`11-onboarding`** (`POST /webhook/financeiro/onboarding`, Fase 5) — the one workflow that does
   **not** use `buildAuthPrefix()`/`X-Empresa-Token`, because it creates an empresa rather than
   acting on one that already exists. Protected instead by n8n's built-in webhook `authentication:
